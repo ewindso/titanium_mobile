@@ -167,6 +167,11 @@ public class TiMapView extends TiUIView
 		}
 
 		@Override
+		public void draw(android.graphics.Canvas canvas, MapView mapView, boolean shadow) {
+			super.draw(canvas, mapView, false);
+		}
+
+		@Override
 		protected TiOverlayItem createItem(int i) {
 			TiOverlayItem item = null;
 
@@ -307,20 +312,20 @@ public class TiMapView extends TiUIView
 
 		ma.setLifecycleListener(new OnLifecycleEvent() {
 			public void onPause(Activity activity) {
-				if (myLocation != null) {
+				/*if (myLocation != null) {
 					if (DBG) {
 						Log.d(LCAT, "onPause: Disabling My Location");
 					}
 					myLocation.disableMyLocation();
-				}
+				}*/
 			}
 			public void onResume(Activity activity) {
-				if (myLocation != null && userLocation) {
+				/*if (myLocation != null && userLocation) {
 					if (DBG) {
 						Log.d(LCAT, "onResume: Enabling My Location");
 					}
 					myLocation.enableMyLocation();
-				}
+				}*/
 			}
 			public void onDestroy(Activity activity) {
 			}

@@ -106,6 +106,18 @@ public class ViewProxy extends TiViewProxy
 			mapView.updateAnnotations();
 		}
 	}
+	
+	@Kroll.method
+	public void addAnnotations(Object[] args)
+	{
+		for(int i = 0; i < args.length; i++) {
+			annotations.add((AnnotationProxy)args[i]);
+		}
+		
+		if(mapView != null) {
+			mapView.updateAnnotations();
+		}
+	}
 
 	protected int findAnnotation(String title)
 	{
