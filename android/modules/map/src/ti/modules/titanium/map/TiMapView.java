@@ -313,20 +313,20 @@ public class TiMapView extends TiUIView
 
 		ma.setLifecycleListener(new OnLifecycleEvent() {
 			public void onPause(Activity activity) {
-				if (myLocation != null) {
-				//	if (DBG) {
+				/*if (myLocation != null) {
+					if (DBG) {
 						Log.d(LCAT, "onPause: Disabling My Location");
 				//	}
 					myLocation.disableMyLocation();
-				}
+				}*/
 			}
 			public void onResume(Activity activity) {
-				if (myLocation != null) { // && userLocation) {
-				//	if (DBG) {
+				/*if (myLocation != null && userLocation) {
+					if (DBG) {
 						Log.d(LCAT, "onResume: Enabling My Location");
 				//	}
 					myLocation.enableMyLocation();
-				}
+				}*/
 			}
 			public void onDestroy(Activity activity) {
 			}
