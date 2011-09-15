@@ -121,7 +121,6 @@
 	[closingProxy autorelease];
 	closingProxy = [window retain];
 	[controller setViewControllers:newControllers animated:animated];
-	
 }
 
 - (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration
@@ -156,6 +155,10 @@
 	[closingProxy close:nil];
 	[closingProxy release];
 	closingProxy = nil;
+<<<<<<< HEAD
+=======
+	
+>>>>>>> 862b08c... updated navigation group to close properly
 	opening = NO;
 	[newWindow windowDidOpen];
 }
