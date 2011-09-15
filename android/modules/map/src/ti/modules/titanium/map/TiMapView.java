@@ -42,6 +42,7 @@ import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 import android.view.Window;
 import android.widget.Toast;
+import android.location.Location;
 
 import com.google.android.maps.GeoPoint;
 import com.google.android.maps.ItemizedOverlay;
@@ -112,7 +113,7 @@ public class TiMapView extends TiUIView
 		public void setScrollable(boolean enable) {
 			scrollEnabled = enable;
 		}
-
+		
 		@Override
 		public boolean dispatchTouchEvent(MotionEvent ev) {
 			if (!scrollEnabled && ev.getAction() == MotionEvent.ACTION_MOVE) {
@@ -312,20 +313,20 @@ public class TiMapView extends TiUIView
 
 		ma.setLifecycleListener(new OnLifecycleEvent() {
 			public void onPause(Activity activity) {
-				/*if (myLocation != null) {
-					if (DBG) {
+				if (myLocation != null) {
+				//	if (DBG) {
 						Log.d(LCAT, "onPause: Disabling My Location");
-					}
+				//	}
 					myLocation.disableMyLocation();
-				}*/
+				}
 			}
 			public void onResume(Activity activity) {
-				/*if (myLocation != null && userLocation) {
-					if (DBG) {
+				if (myLocation != null) { // && userLocation) {
+				//	if (DBG) {
 						Log.d(LCAT, "onResume: Enabling My Location");
-					}
+				//	}
 					myLocation.enableMyLocation();
-				}*/
+				}
 			}
 			public void onDestroy(Activity activity) {
 			}
@@ -435,6 +436,20 @@ public class TiMapView extends TiUIView
 
 			view.addView(itemView, params);
 		}
+	}
+
+	public String myLocationCoords() {
+		if(myLocation != null) {
+			Location curLocation = myLocation.getLastFix();
+			if(curLocation != null) {
+			
+				String returnLocation = "";
+				returnLocation += curLocation.getLatitude() + "," + curLocation.getLongitude();
+			
+				return returnLocation;
+			}
+		}
+		return "";
 	}
 
 	public void updateAnnotations() {
