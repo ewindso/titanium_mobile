@@ -81,6 +81,11 @@ public class ViewProxy extends TiViewProxy
 		
 		return mapView;
 	}
+	
+	@Kroll.method
+	public String myLocationCoords() {
+		return mapView.myLocationCoords();
+	}
 
 	@Kroll.method
 	public void zoom(int delta) {
