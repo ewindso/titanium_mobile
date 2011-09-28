@@ -600,6 +600,42 @@
 	}
 }
 
+// TODO: We can remove all this when we go to 4.0-only... including the click detection stuff, thanks to new delegates.
+- (void)observeValueForKeyPath:(NSString *)keyPath
+                      ofObject:(id)object
+                        change:(NSDictionary *)change
+                       context:(void *)context
+{	
+	NSString *action = (NSString*)context;
+	
+	NSLog(@"MAP HIT: %@", action);
+	
+	if([action isEqualToString:@"ANSELECTED"])
+	{
+		if ([object conformsToProtocol:@protocol(TiMapAnnotation)])
+		{
+			MKAnnotationView<TiMapAnnotation> *ann = (MKAnnotationView<TiMapAnnotation> *)object;
+			
+			// make sure it's just "appeared"
+			if([[change valueForKey:@"new"]boolValue]) {
+			
+				BOOL isSelected = [ann isSelected];
+			
+				// Short-circuit on manual selection; we don't need to do all the expensive "which point did we hit" stuff
+				if (manualSelect || hitSelect && (hitAnnotation == [ann annotation] || hitAnnotation == nil)) {
+					[self fireClickEvent:ann source:isSelected?@"pin":[ann lastHitName]];
+					// Manual selection only fires once - but don't clear hitAnnotation until the next hit event/manual select
+					// hitSelect is necessary to avoid some internal madness where 'selected' will toggle rapidly when scrolling to
+					// show an annotation's accessory view
+					manualSelect = NO;
+					hitSelect = NO;
+					return;
+				}
+			}
+		}
+	}
+}
+
 - (void)mapView:(MKMapView *)mapView annotationView:(MKAnnotationView *)aview calloutAccessoryControlTapped:(UIControl *)control
 {
 	if ([aview conformsToProtocol:@protocol(TiMapAnnotation)])

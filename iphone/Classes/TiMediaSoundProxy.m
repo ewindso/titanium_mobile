@@ -86,23 +86,20 @@
 
 -(void)play:(id)args
 {
-    [self rememberSelf];
-    dispatch_sync(dispatch_get_main_queue(), ^{
-        // indicate we're going to start playback
-        if (![[TiMediaAudioSession sharedSession] canPlayback]) {
-            [self throwException:@"Improper audio session mode for playback"
-                       subreason:[[NSNumber numberWithUnsignedInt:[[TiMediaAudioSession sharedSession] sessionMode]] description]
-                        location:CODELOCATION];
-			NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys:@"Improper audio session mode for playback",@"message",nil];
-			[self fireEvent:@"error" withObject:event];	
-        }
-        
-        if (player == nil || !([player isPlaying] || paused)) {
-            [[TiMediaAudioSession sharedSession] startAudioSession];
-        }
-        [[self player] play];
-        paused = NO;
-    });
+	// indicate we're going to start playback
+	if (![[TiMediaAudioSession sharedSession] canPlayback]) {
+/*		[self throwException:@"Improper audio session mode for playback"
+				   subreason:[[NSNumber numberWithUnsignedInt:[[TiMediaAudioSession sharedSession] sessionMode]] description]
+					location:CODELOCATION];*/
+		NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys:@"Improper audio session mode for playback",@"message",nil];
+		[self fireEvent:@"error" withObject:event];	
+	}
+	
+	if (player == nil || !([player isPlaying] || paused)) {
+		[[TiMediaAudioSession sharedSession] startAudioSession];
+	}
+	[[self player] play];
+	paused = NO;
 }
 
 -(void)stop:(id)args
