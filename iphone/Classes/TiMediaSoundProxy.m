@@ -85,7 +85,10 @@
 		player = [[AVAudioPlayer alloc] initWithContentsOfURL:url error:(NSError **)&error];
 		if (error != nil)
 		{
-			[self throwException:[error description] subreason:[NSString stringWithFormat:@"error loading sound url: %@",url] location:CODELOCATION];
+			/*[self throwException:[error description] subreason:[NSString stringWithFormat:@"error loading sound url: %@",url] location:CODELOCATION];*/
+			NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys:[error description],@"message",nil];
+			[self fireEvent:@"error" withObject:event];
+			
 			return nil;
 		}
 		[player setDelegate:self];
@@ -108,9 +111,11 @@
 {
 	// indicate we're going to start playback
 	if (![[TiMediaAudioSession sharedSession] canPlayback]) {
-		[self throwException:@"Improper audio session mode for playback"
+/*		[self throwException:@"Improper audio session mode for playback"
 				   subreason:[[NSNumber numberWithUnsignedInt:[[TiMediaAudioSession sharedSession] sessionMode]] description]
-					location:CODELOCATION];
+					location:CODELOCATION];*/
+		NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys:@"Improper audio session mode for playback",@"message",nil];
+		[self fireEvent:@"error" withObject:event];	
 	}
 	
 	if (player == nil || !([player isPlaying] || paused)) {
