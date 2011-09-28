@@ -20,24 +20,6 @@
 
 #pragma mark Internal
 
--(AVAudioPlayer*)player
-{
-	if (player==nil && url != nil) {
-        NSError* error = nil;
-        player = [[AVAudioPlayer alloc] initWithContentsOfURL:url error:(NSError **)&error];
-        if (error == nil) {
-            [player setDelegate:self];
-            [player prepareToPlay];
-            [player setVolume:volume];
-            [player setNumberOfLoops:(looping?-1:0)];
-            [player setCurrentTime:resumeTime];
-        } else {
-            [self throwException:[error description] subreason:[NSString stringWithFormat:@"error loading sound url: %@",url] location:CODELOCATION];
-        }
-	}
-	return player;
-}
-
 -(void)_configure
 {
 	volume = 1.0;
@@ -68,6 +50,38 @@
 	[super _destroy];
 }
 
+-(AVAudioPlayer*)player
+{
+	if (player==nil)
+	{
+		// We do the same thing as the video player and fail silently, now.
+		if (url == nil) {
+			return nil;
+		}
+		NSError *error = nil;
+		player = [[AVAudioPlayer alloc] initWithContentsOfURL:url error:(NSError **)&error];
+		if (error != nil)
+		{
+			/*[self throwException:[error description] subreason:[NSString stringWithFormat:@"error loading sound url: %@",url] location:CODELOCATION];*/
+			NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys:[error description],@"message",nil];
+			[self fireEvent:@"error" withObject:event];
+			
+			return nil;
+		}
+		[player setDelegate:self];
+		[player prepareToPlay];
+		[player setVolume:volume];
+		[player setNumberOfLoops:(looping?-1:0)];
+		[player setCurrentTime:resumeTime];
+	}
+	return player;
+}
+
+-(void)_prepare
+{
+	[[self player] prepareToPlay];
+}
+
 #pragma mark Public APIs
 
 -(void)play:(id)args
@@ -79,6 +93,8 @@
             [self throwException:@"Improper audio session mode for playback"
                        subreason:[[NSNumber numberWithUnsignedInt:[[TiMediaAudioSession sharedSession] sessionMode]] description]
                         location:CODELOCATION];
+			NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys:@"Improper audio session mode for playback",@"message",nil];
+			[self fireEvent:@"error" withObject:event];	
         }
         
         if (player == nil || !([player isPlaying] || paused)) {
