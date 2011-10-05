@@ -73,7 +73,7 @@
 	// If we are currently recording, stop and save the file.
 	if (rec->IsRunning()) 
 	{
-		[self throwException:@"invalid state" subreason:@"already recording" location:CODELOCATION];
+		//[self throwException:@"invalid state" subreason:@"already recording" location:CODELOCATION];
 		return;
 	}
 	else
@@ -122,9 +122,13 @@
 		
 		// indicate we're going to start recording
 		if (![[TiMediaAudioSession sharedSession] canRecord]) {
-			[self throwException:@"Improper audio session mode for recording"
+			/*[self throwException:@"Improper audio session mode for recording"
 					   subreason:[[NSNumber numberWithUnsignedInt:[[TiMediaAudioSession sharedSession] sessionMode]] description]
-						location:CODELOCATION];
+						location:CODELOCATION];*/
+						
+			NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys:@"Improper audio session mode for playback",@"message",nil];
+			[self fireEvent:@"error" withObject:event];	
+			return;
 		}
 		
 		[[TiMediaAudioSession sharedSession] startAudioSession];
