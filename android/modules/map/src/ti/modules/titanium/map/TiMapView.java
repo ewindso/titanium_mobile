@@ -458,7 +458,7 @@ public class TiMapView extends TiUIView
 
 	public void doUpdateAnnotations() {
 		if (itemView != null && view != null && view.indexOfChild(itemView) != -1 ) {
-			hideAnnotation();
+			//hideAnnotation();
 		}
 		doSetAnnotations(annotations);
 	}
@@ -468,12 +468,30 @@ public class TiMapView extends TiUIView
 			synchronized(overlay) {
 				TiOverlayItem item = overlay.getItem(index);
 				if (itemView != null && index == itemView.getLastIndex() && itemView.getVisibility() == View.VISIBLE) {
+					// trigger event annotationDeselected
+					KrollDict d = new KrollDict();
+					d.put(TiC.PROPERTY_TITLE, item.getTitle());
+					d.put(TiC.PROPERTY_SUBTITLE, item.getSnippet());
+					d.put(TiC.PROPERTY_LATITUDE, scaleFromGoogle(item.getPoint().getLatitudeE6()));
+					d.put(TiC.PROPERTY_LONGITUDE, scaleFromGoogle(item.getPoint().getLongitudeE6()));
+					d.put(TiC.PROPERTY_ANNOTATION, item.getProxy());
+					proxy.fireEvent(TiC.EVENT_ANNOTATION_DESELECTED, d);					
+					
 					hideAnnotation();
 					return;
 				}
 
 				if (item.hasData()) {
 					hideAnnotation();
+					// trigger event annotationSelected
+					KrollDict d = new KrollDict();
+					d.put(TiC.PROPERTY_TITLE, item.getTitle());
+					d.put(TiC.PROPERTY_SUBTITLE, item.getSnippet());
+					d.put(TiC.PROPERTY_LATITUDE, scaleFromGoogle(item.getPoint().getLatitudeE6()));
+					d.put(TiC.PROPERTY_LONGITUDE, scaleFromGoogle(item.getPoint().getLongitudeE6()));
+					d.put(TiC.PROPERTY_ANNOTATION, item.getProxy());
+					proxy.fireEvent(TiC.EVENT_ANNOTATION_SELECTED, d);
+					
 					showAnnotation(index, item);
 				} else {
 					Toast.makeText(proxy.getContext(), "No information for location", Toast.LENGTH_SHORT).show();
@@ -640,13 +658,13 @@ public class TiMapView extends TiUIView
 
 							hideAnnotation();
 
-							MapController controller = view.getController();
+							/*MapController controller = view.getController();
 							if (animate) {
 								controller.animateTo(item.getPoint());
 							} else {
 								controller.setCenter(item.getPoint());
 							}
-							Log.e(LCAT, "A3:" + index + ":" + item);
+							Log.e(LCAT, "A3:" + index + ":" + item);*/
 							showAnnotation(index, item);
 						} else {
 							hideAnnotation();

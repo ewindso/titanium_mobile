@@ -22,6 +22,10 @@ public class TiC
 	public static final String EVENT_BLUR = "blur";
 	public static final String EVENT_CHANGE = "change";
 	public static final String EVENT_CLICK = "click";
+	// added by Elijah
+	public static final String EVENT_ANNOTATION_SELECTED = "annotationSelected";
+	public static final String EVENT_ANNOTATION_DESELECTED = "annotationDeselected";
+	
 	public static final String EVENT_CLOSE = "close";
 	public static final String EVENT_COMPLETE = "complete";
 	public static final String EVENT_CREATE = "create";
