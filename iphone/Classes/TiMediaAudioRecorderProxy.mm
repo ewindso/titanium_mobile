@@ -74,6 +74,8 @@
 	if (rec->IsRunning()) 
 	{
 		//[self throwException:@"invalid state" subreason:@"already recording" location:CODELOCATION];
+		NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys:@"Invalid state",@"message",nil];
+		[self fireEvent:@"error" withObject:event];
 		return;
 	}
 	else
