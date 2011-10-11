@@ -465,8 +465,6 @@ public class TiMapView extends TiUIView
 
 	public void doUpdateAnnotations() {
 		if (itemView != null && view != null && view.indexOfChild(itemView) != -1 ) {
-			//TODO: hide pin annotations here
-			
 			//hideAnnotation();
 		}
 		doSetAnnotations(annotations);
