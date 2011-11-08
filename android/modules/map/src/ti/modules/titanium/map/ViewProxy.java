@@ -129,6 +129,7 @@ public class ViewProxy extends TiViewProxy
 			mapView.nowHideAnnotation();
 		}
 	}
+
 	protected int findAnnotation(String title)
 	{
 		int existsIndex = -1;
