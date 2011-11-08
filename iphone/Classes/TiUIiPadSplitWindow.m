@@ -12,8 +12,6 @@
 #endif
 
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
-
 #import "TiUIiPadSplitWindow.h"
 #import "TiUtils.h"
 #import "TiViewController.h"
@@ -53,7 +51,7 @@ UIViewController * ControllerForProxy(TiViewProxy * proxy)
 	{
 		TiViewProxy* masterProxy = [self.proxy valueForUndefinedKey:@"masterView"];
 		TiViewProxy* detailProxy = [self.proxy valueForUndefinedKey:@"detailView"];
-		
+        
 		controller = [[MGSplitViewController alloc] init];		
 		[controller setViewControllers:[NSArray arrayWithObjects:
 				ControllerForProxy(masterProxy),ControllerForProxy(detailProxy),nil]];
@@ -145,7 +143,14 @@ UIViewController * ControllerForProxy(TiViewProxy * proxy)
 	}
 }
 
-
+-(void)setShowMasterInPortrait_:(id)value
+{
+    BOOL showMaster = [TiUtils boolValue:value def:NO];
+    MGSplitViewController* splitController = (MGSplitViewController*)[self controller];
+    [splitController setShowsMasterInPortrait:showMaster];
+    
+    [[self proxy] replaceValue:value forKey:@"showMasterInPortrait" notification:NO];
+}
 
 #pragma mark Delegate 
 
@@ -186,7 +191,5 @@ UIViewController * ControllerForProxy(TiViewProxy * proxy)
 
 
 @end
-
-#endif
 
 #endif

@@ -57,7 +57,7 @@ TiOrientationFlags TiOrientationFlagsFromObject(id args);
 	BOOL opening;
 	BOOL attached;
 	BOOL closing;
-	BOOL splashTransitionAnimation;
+	BOOL startingTransitionAnimation;
 	int transitionAnimation;
 
 
@@ -77,6 +77,8 @@ TiOrientationFlags TiOrientationFlagsFromObject(id args);
 
 -(void)fireFocus:(BOOL)newFocused;
 
+@property(nonatomic,readonly)	BOOL opening;
+
 #pragma mark Public APIs
 
 @property(nonatomic,readonly)	NSNumber *opened;
@@ -95,10 +97,12 @@ TiOrientationFlags TiOrientationFlagsFromObject(id args);
 -(BOOL)_isChildOfTab;
 -(void)_associateTab:(UIViewController*)controller_ navBar:(UINavigationController*)navbar_ tab:(TiProxy<TiTab>*)tab_;
 -(void)prepareForNavView:(UINavigationController*)navController_;
+-(void)ignoringRotationToOrientation:(UIInterfaceOrientation)orientation;
 
 @property(nonatomic,readwrite,retain)	UIViewController *controller;
 @property(nonatomic,readwrite,retain)	UINavigationController *navController;
 
+-(void)releaseController;
 -(void)replaceController;
 -(UIWindow*)_window;
 -(BOOL)_handleOpen:(id)args;

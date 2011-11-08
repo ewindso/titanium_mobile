@@ -8,16 +8,27 @@
 #import "TiUIiOSAdViewProxy.h"
 #import "TiUtils.h"
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
-
 #ifdef USE_TI_UIIOSADVIEW
 
 #import <iAd/iAd.h>
 
 @implementation TiUIiOSAdViewProxy
 
-MAKE_SYSTEM_STR(SIZE_320x50,ADBannerContentSizeIdentifier320x50);
-MAKE_SYSTEM_STR(SIZE_480x32,ADBannerContentSizeIdentifier480x32);
+-(NSString*)SIZE_320x50 
+{
+	if ([TiUtils isIOS4_2OrGreater]) {
+		return ADBannerContentSizeIdentifierPortrait;
+	}
+	return @"ADBannerContentSize320x50";
+}
+
+-(NSString*)SIZE_480x32 
+{
+	if ([TiUtils isIOS4_2OrGreater]) {
+		return ADBannerContentSizeIdentifierLandscape;
+	}
+	return @"ADBannerContentSize480x32";
+}
 
 USE_VIEW_FOR_AUTO_HEIGHT
 USE_VIEW_FOR_AUTO_WIDTH
@@ -28,7 +39,5 @@ USE_VIEW_FOR_AUTO_WIDTH
 }
 
 @end
-
-#endif
 
 #endif

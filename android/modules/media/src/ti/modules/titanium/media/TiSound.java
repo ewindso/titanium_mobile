@@ -264,7 +264,7 @@ public class TiSound
 				Log.w(LCAT, "Attempt to set volume less than 0.0. Volume set to 0.0");
 			} else if (volume > 1.0) {
 				this.volume = 1.0f;
-				proxy.setProperty("volume", volume);
+				proxy.setProperty(SoundProxy.PROPERTY_VOLUME, volume);
 				Log.w(LCAT, "Attempt to set volume greater than 1.0. Volume set to 1.0");
 			} else {
 				this.volume = volume; // Store in 0.0 to 1.0, scale when setting hw
@@ -293,6 +293,8 @@ public class TiSound
 
 		if (mp != null) {
 			time = mp.getCurrentPosition();
+		} else {
+			time = TiConvert.toInt(proxy.getProperty(TiC.PROPERTY_TIME));
 		}
 
 		return time;
@@ -313,7 +315,7 @@ public class TiSound
 			mp.seekTo(position);
 		}
 
-		proxy.setProperty("time", position);
+		proxy.setProperty(TiC.PROPERTY_TIME, position);
 	}
 
 	private void setState(int state)
@@ -423,8 +425,8 @@ public class TiSound
 		}
 
 		KrollDict data = new KrollDict();
-		data.put("code", 0);
-		data.put("message", msg);
+		data.put(TiC.PROPERTY_CODE, 0);
+		data.put(TiC.PROPERTY_MESSAGE, msg);
 		proxy.fireEvent(EVENT_ERROR, data);
 
 		return true;
@@ -441,8 +443,8 @@ public class TiSound
 		release();
 
 		KrollDict data = new KrollDict();
-		data.put("code", code);
-		data.put("message", msg);
+		data.put(TiC.PROPERTY_CODE, code);
+		data.put(TiC.PROPERTY_MESSAGE, msg);
 		proxy.fireEvent(EVENT_ERROR, data);
 
 		return true;
@@ -470,7 +472,7 @@ public class TiSound
 			@Override
 			public void run() {
 				if (mp != null && mp.isPlaying()) {
-					double position = mp.getCurrentPosition();
+					int position = mp.getCurrentPosition();
 					KrollDict event = new KrollDict();
 					event.put("progress", position);
 					proxy.fireEvent(EVENT_PROGRESS, event);
@@ -525,23 +527,23 @@ public class TiSound
 	@Override
 	public void processProperties(KrollDict d)
 	{
-		if (d.containsKey("volume")) {
-			setVolume(TiConvert.toFloat(d, "volume"));
+		if (d.containsKey(SoundProxy.PROPERTY_VOLUME)) {
+			setVolume(TiConvert.toFloat(d, SoundProxy.PROPERTY_VOLUME));
 		} else {
 			setVolume(0.5f);
 		}
 
-		if (d.containsKey("time")) {
-			setTime(TiConvert.toInt(d, "time"));
+		if (d.containsKey(TiC.PROPERTY_TIME)) {
+			setTime(TiConvert.toInt(d, TiC.PROPERTY_TIME));
 		}
 	}
 
 	@Override
 	public void propertyChanged(String key, Object oldValue, Object newValue, KrollProxy proxy)
 	{
-		if ("volume".equals(key)) {
+		if (SoundProxy.PROPERTY_VOLUME.equals(key)) {
 			setVolume(TiConvert.toFloat(newValue));
-		} else if ("time".equals(key)) {
+		} else if (TiC.PROPERTY_TIME.equals(key)) {
 			setTime(TiConvert.toInt(newValue));
 		}
 	}
@@ -552,5 +554,5 @@ public class TiSound
 		for (KrollPropertyChange change : changes) {
 			propertyChanged(change.getName(), change.getOldValue(), change.getNewValue(), proxy);
 		}
-	}
+	}	
 }

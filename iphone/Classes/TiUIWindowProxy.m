@@ -13,6 +13,7 @@
 #import "TiComplexValue.h"
 #import "TiApp.h"
 #import "TiTabController.h"
+#import "TiLayoutQueue.h"
 
 // this is how long we should wait on the new JS context to be loaded
 // holding the UI thread before we return during an window open. we 
@@ -104,12 +105,19 @@
 
 @implementation TiUIWindowProxy
 
+-(void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration
+{
+    [super willAnimateRotationToInterfaceOrientation:toInterfaceOrientation duration:duration];
+	[TiLayoutQueue addViewProxy:self];
+}
+
 -(void)_destroy
 {
     if (![self closing]) {
         [self performSelectorOnMainThread:@selector(close:) withObject:nil waitUntilDone:YES];
     }
     
+	[barImageView performSelectorOnMainThread:@selector(removeFromSuperview) withObject:nil waitUntilDone:NO];
 	RELEASE_TO_NIL(barImageView);
 	if (context!=nil)
 	{
@@ -224,7 +232,7 @@
 		BOOL animate = args!=nil && [args count]>0 ? [TiUtils boolValue:@"animated" properties:[args objectAtIndex:0] def:YES] : YES;
 		[tab windowClosing:self animated:animate];
 	}
-	else
+	else if(focused)
 	{
 		// if we don't have a tab, we need to fire blur
 		// events ourselves
@@ -309,9 +317,20 @@
 	
 	[barImageView setFrame:barFrame];
 	
-	if ([[ourNB subviews] indexOfObject:barImageView] != 0)
+	int barImageViewIndex = 0;
+	if ([ourNB respondsToSelector:@selector(setBackgroundImage:forBarMetrics:)]) {
+	/*
+	 *	While iOS 5 has methods for setting the background Image, using it requires
+	 *	linking to that SDK (the mentioned bar metrics is an enumeration) which,
+	 *	while iOS 5 is behind the NDA, isn't an option.
+	 *	TODO: Update when iOS 5 is not NDAed for something more elegant.
+	 */
+		barImageViewIndex = 1;
+	}
+	
+	if ([[ourNB subviews] indexOfObject:barImageView] != barImageViewIndex)
 	{
-		[ourNB insertSubview:barImageView atIndex:0];
+		[ourNB insertSubview:barImageView atIndex:barImageViewIndex];
 	}
 }
 
@@ -353,9 +372,10 @@
 		{
 			// detach existing one
 			UIBarButtonItem *item = controller.navigationItem.rightBarButtonItem;
-			if (item!=nil && [item isKindOfClass:[TiViewProxy class]])
+			if ([item respondsToSelector:@selector(proxy)])
 			{
-				[(TiViewProxy*)item removeBarButtonView];
+				TiViewProxy* p = (TiViewProxy*)[item performSelector:@selector(proxy)];
+				[p removeBarButtonView];
 			}
 			if (proxy!=nil)
 			{
@@ -399,9 +419,10 @@
 		{
 			// detach existing one
 			UIBarButtonItem *item = controller.navigationItem.leftBarButtonItem;
-			if (item!=nil && [item isKindOfClass:[TiViewProxy class]])
+			if ([item respondsToSelector:@selector(proxy)])
 			{
-				[(TiViewProxy*)item removeBarButtonView];
+				TiViewProxy* p = (TiViewProxy*)[item performSelector:@selector(proxy)];
+				[p removeBarButtonView];
 			}
 			controller.navigationItem.leftBarButtonItem = nil;			
 			if (proxy!=nil)
@@ -617,9 +638,10 @@
 		{
 			for (id current in existing)
 			{
-				if ([current isKindOfClass:[TiViewProxy class]])
+				if ([current respondsToSelector:@selector(proxy)])
 				{
-					[(TiViewProxy*)current removeBarButtonView];
+					TiViewProxy* p = (TiViewProxy*)[current performSelector:@selector(proxy)];
+					[p removeBarButtonView];
 				}
 			}
 		}
@@ -709,23 +731,27 @@ else{\
 - (void)viewWillAppear:(BOOL)animated;    // Called when the view is about to made visible. Default does nothing
 {
 	animating = YES;
+	[super viewWillAppear:animated];
 }
 
 - (void)viewDidAppear:(BOOL)animated;     // Called when the view has been fully transitioned onto the screen. Default does nothing
 {
 	animating = NO;
 	[self updateTitleView];
+	[super viewDidAppear:animated];
 }
 
 - (void)viewWillDisappear:(BOOL)animated; // Called when the view is dismissed, covered or otherwise hidden. Default does nothing
 {
 	animating = YES;
+	[super viewWillDisappear:animated];
 }
 
 - (void)viewDidDisappear:(BOOL)animated;  // Called after the view was dismissed, covered or otherwise hidden. Default does nothing
 {
 	animating = NO;
 	[self updateTitleView];
+	[super viewDidDisappear:animated];
 }
 
 -(void)setupWindowDecorations
@@ -764,6 +790,25 @@ else{\
 	}
 }
 
+-(void)cleanupWindowDecorations
+{
+    if (controller != nil) {
+        UIBarButtonItem *item = controller.navigationItem.leftBarButtonItem;
+        if ([item respondsToSelector:@selector(proxy)])
+        {
+			TiViewProxy* p = (TiViewProxy*)[item performSelector:@selector(proxy)];
+            [p removeBarButtonView];
+        }
+        
+        item = controller.navigationItem.rightBarButtonItem;
+        if ([item respondsToSelector:@selector(proxy)]) 
+        {
+			TiViewProxy* p = (TiViewProxy*)[item performSelector:@selector(proxy)];
+            [p removeBarButtonView];
+        }
+    }
+}
+
 -(void)_tabBeforeFocus
 {
 	if (focused==NO)
@@ -775,7 +820,10 @@ else{\
 
 -(void)_tabBeforeBlur
 {
-//	[barImageView removeFromSuperview];
+    if (focused==YES) {
+        [self cleanupWindowDecorations];
+    }
+	[barImageView removeFromSuperview];
 	[super _tabBeforeBlur];
 }
 
@@ -786,7 +834,10 @@ else{\
 		// we can't fire focus here since we 
 		// haven't yet wired up the JS context at this point
 		// and listeners wouldn't be ready
-		[self fireFocus:YES];
+		if(![self opening])
+		{
+			[self fireFocus:YES];
+		}
 		[self setupWindowDecorations];
 	}
 	[super _tabFocus];
@@ -797,7 +848,9 @@ else{\
 	if (focused)
 	{
 		[self fireFocus:NO];
-		[barImageView removeFromSuperview];
+		if ([navController topViewController] != controller) {
+			[barImageView removeFromSuperview];
+		}
 	}
 	[super _tabBlur];
 }

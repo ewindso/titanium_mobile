@@ -14,6 +14,10 @@
 #import "TiProxy.h"
 #import "TiViewProxy.h"
 #import "TiUITableViewProxy.h"
+<<<<<<< HEAD
+=======
+#import "TiApp.h"
+>>>>>>> master
 
 #define DEFAULT_SECTION_HEADERFOOTER_HEIGHT 20.0
 
@@ -37,14 +41,50 @@
 
 -(void)dealloc
 {
+    [proxy setCallbackCell:nil];
+    
 	RELEASE_TO_NIL(gradientLayer);
 	RELEASE_TO_NIL(backgroundGradient);
 	RELEASE_TO_NIL(selectedBackgroundGradient);
 	[super dealloc];
 }
 
+-(void)setProxy:(TiUITableViewRowProxy *)proxy_
+{
+    if (proxy == proxy_) {
+        return;
+    }
+    
+    if ([proxy callbackCell] == self) {
+        [proxy setCallbackCell:nil];
+    }
+    proxy = proxy_;
+}
+
+-(CGSize)computeCellSize
+{
+    CGFloat width = 0;
+    if ([proxy table] != nil) {
+        width = [proxy sizeWidthForDecorations:[[proxy table] tableView].bounds.size.width forceResizing:YES];        
+    }
+	CGFloat height = [proxy rowHeight:width];
+	height = [[proxy table] tableRowHeight:height];
+    
+    // If there is a separator, then it's included as part of the row height as the system, so remove the pixel for it
+    // from our cell size
+    if ([[[proxy table] tableView] separatorStyle] == UITableViewCellSeparatorStyleSingleLine) {
+        height -= 1;
+    }
+    
+    return CGSizeMake(width, height);
+}
+
 -(void)prepareForReuse
 {
+    // If we're reusing a cell, it obviously isn't attached to a proxy.
+    [proxy setCallbackCell:nil];
+    proxy = nil;
+    
 	[super prepareForReuse];
 	
 	// TODO: HACK: In the case of abnormally large table view cells, we have to reset the size.
@@ -52,9 +92,10 @@
 	// and if its frame is too big... the view system allocates way too much memory/pixels and doesn't appear to let
 	// them go.
 
-	// Until we can properly revisit this... just size the cell to 320x44.  The standard size.
 	CGRect oldFrame = [[self contentView] frame];
-	[[self contentView] setFrame:CGRectMake(oldFrame.origin.x, oldFrame.origin.y, 320, 44)];
+    CGSize cellSize = [self computeCellSize];
+    
+	[[self contentView] setFrame:CGRectMake(oldFrame.origin.x, oldFrame.origin.y, cellSize.width, cellSize.height)];
 }
 
 - (UIView *)hitTest:(CGPoint) point withEvent:(UIEvent *)event 
@@ -178,14 +219,22 @@
 
 @end
 
+@interface TiUITableView ()
+@property (nonatomic,copy,readwrite) NSString * searchString;
+- (void)updateSearchResultIndexes;
+
+@end
+
 @implementation TiUITableView
 #pragma mark Internal 
+@synthesize searchString;
 
 -(id)init
 {
 	if (self = [super init])
 	{
 		filterCaseInsensitive = YES; // defaults to true on search
+		searchString = @"";
 	}
 	return self;
 }
@@ -198,17 +247,28 @@
 		RELEASE_TO_NIL(searchField);
 	}
 	RELEASE_TO_NIL(tableController);
+    
+    searchController.searchResultsDataSource =  nil;
+    searchController.searchResultsDelegate = nil;
+    searchController.delegate = nil;
 	RELEASE_TO_NIL(searchController);
+<<<<<<< HEAD
+=======
+    
+    tableview.delegate = nil;
+    tableview.dataSource = nil;
+>>>>>>> master
 	RELEASE_TO_NIL(tableview);
+    
 	RELEASE_TO_NIL(sectionIndex);
 	RELEASE_TO_NIL(sectionIndexMap);
 	RELEASE_TO_NIL(tableHeaderView);
 	RELEASE_TO_NIL(searchScreenView);
-	RELEASE_TO_NIL(searchTableView);
 	RELEASE_TO_NIL(filterAttribute);
 	RELEASE_TO_NIL(searchResultIndexes);
 	RELEASE_TO_NIL(initialSelection);
 	RELEASE_TO_NIL(tableHeaderPullView);
+	[searchString release];
 	[super dealloc];
 }
 
@@ -250,9 +310,7 @@
 	}
 
 	[table setBackgroundColor:(bgColor != nil ? bgColor : defaultColor)];
-	if ([TiUtils isiPhoneOS3_2OrGreater]) {
-		[[table backgroundView] setBackgroundColor:[table backgroundColor]];
-	}
+	[[table backgroundView] setBackgroundColor:[table backgroundColor]];
 	
 	[table setOpaque:![[table backgroundColor] isEqual:[UIColor clearColor]]];
 }
@@ -460,6 +518,20 @@
 	[row.section reorderRows];
 }
 
+//Because UITableView does not like having 0 sections, we MUST maintain the facade of having at least one section,
+//albeit with 0 rows. Because of this, we might come across several times where this fictional first section will
+//be asked about. Because we don't want the sections array throwing range exceptions, sectionForIndex MUST be used
+//for this protection.
+-(TiUITableViewSectionProxy *)sectionForIndex:(NSInteger) index
+{
+	NSArray * sections = [(TiUITableViewProxy *)[self proxy] sections];
+	if(index >= [sections count])
+	{
+		return nil;
+	}
+	return [sections objectAtIndex:index];
+}
+
 -(void)dispatchAction:(TiUITableViewAction*)action
 {
 	ENSURE_UI_THREAD(dispatchAction,action);
@@ -627,6 +699,12 @@
             break;
         }
 	}
+
+	if ([searchController searchResultsTableView] != nil) {
+		[self updateSearchResultIndexes];
+		[[searchController searchResultsTableView] reloadSections:[NSIndexSet indexSetWithIndex:0]
+					   withRowAnimation:UITableViewRowAnimationFade];		
+	}
 }
 
 -(UIView*)titleViewForText:(NSString*)text footer:(BOOL)footer
@@ -654,6 +732,7 @@
 	return containerView;
 }
 
+<<<<<<< HEAD
 //Because UITableView does not like having 0 sections, we MUST maintain the facade of having at least one section,
 //albeit with 0 rows. Because of this, we might come across several times where this fictional first section will
 //be asked about. Because we don't want the sections array throwing range exceptions, sectionForIndex MUST be used
@@ -668,6 +747,8 @@
 	return [sections objectAtIndex:index];
 }
 
+=======
+>>>>>>> master
 -(TiUITableViewRowProxy*)rowForIndexPath:(NSIndexPath*)indexPath
 {
 	TiUITableViewSectionProxy *section = [self sectionForIndex:[indexPath section]];
@@ -745,7 +826,10 @@
 
 	[eventObject setObject:NUMFLOAT(point.x) forKey:@"x"];
 	[eventObject setObject:NUMFLOAT(point.y) forKey:@"y"];
-	
+
+	CGPoint globalPoint = [thisCell convertPoint:point toView:nil];
+	[eventObject setObject:[TiUtils pointToDictionary:globalPoint] forKey:@"globalPoint"];
+
 	if ([target _hasListeners:name])
 	{
 		[target fireEvent:name withObject:eventObject];
@@ -795,20 +879,6 @@
 }
 
 
-- (UITableView *) searchTableView
-{
-	if(searchTableView == nil)
-	{
-		CGRect searchFrame = [TiUtils viewPositionRect:[self searchScreenView]];
-		//Todo: make sure we account for the keyboard.
-		searchTableView = [[UITableView alloc] initWithFrame:searchFrame style:UITableViewStylePlain];
-		[searchTableView setDelegate:self];
-		[searchTableView setDataSource:self];
-	}
-	return searchTableView;
-}
-
-
 #pragma mark Searchbar helper methods
 
 - (NSIndexPath *) indexPathFromSearchIndex: (int) index
@@ -833,7 +903,7 @@
 	return nil;
 }
 
-- (void)updateSearchResultIndexesForString:(NSString *) searchString
+- (void)updateSearchResultIndexes
 {
 	NSEnumerator * searchResultIndexEnumerator;
 	if(searchResultIndexes == nil)
@@ -977,8 +1047,6 @@
 	
 	[[searchField view] resignFirstResponder];
 	[self makeRootViewFirstResponder];
-	[searchTableView removeFromSuperview];
-	[tableview setScrollEnabled:[self isScrollable]];
 	[self.proxy replaceValue:NUMBOOL(YES) forKey:@"searchHidden" notification:NO];
 	[searchController setActive:NO animated:YES];
 	
@@ -1010,7 +1078,6 @@
 		[tableview scrollToRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]
 						 atScrollPosition:UITableViewScrollPositionBottom animated:NO];
 	}
-	[tableview setScrollEnabled:NO];
 	
 	CGRect screenRect = [TiUtils viewPositionRect:tableview];
 	CGFloat searchHeight = [[tableview tableHeaderView] bounds].size.height;
@@ -1019,16 +1086,8 @@
 	screenRect.size.height -= searchHeight;
 	
 	UIView * wrapperView = [tableview superview];
-	if ([[self searchScreenView] superview] != wrapperView) 
-	{
-//		[searchScreenView setAlpha:0.0];
-//		[wrapperView insertSubview:searchScreenView aboveSubview:tableview];
-	}
-//	[TiUtils setView:searchScreenView positionRect:screenRect];
 	
 	[UIView beginAnimations:@"searchy" context:nil];
-//	[searchScreenView setEnabled:YES];
-//	[searchScreenView setAlpha:0.85];
 	[tableview setContentOffset:CGPointMake(0,0)];
 	[UIView commitAnimations];
 }
@@ -1045,7 +1104,6 @@
 	{
 		[tableview setTableHeaderView:nil];
 		RELEASE_TO_NIL(tableHeaderView);
-		RELEASE_TO_NIL(searchTableView);
 		RELEASE_TO_NIL(searchScreenView);
 		RELEASE_TO_NIL(searchResultIndexes);
 		return;
@@ -1074,35 +1132,15 @@
 
 - (void)searchBar:(UISearchBar *)searchBar textDidChange:(NSString *)searchText
 {
+	[self setSearchString:searchText];
 	// called when text changes (including clear)
 	if([searchText length]==0)
 	{
 		// Redraw visible cells
         [tableview reloadRowsAtIndexPaths:[tableview indexPathsForVisibleRows] withRowAnimation:UITableViewRowAnimationNone];
-		[searchTableView removeFromSuperview];
 		return;
 	}
-	[self updateSearchResultIndexesForString:searchText];
-	
-	UIView * wrapperView = [searchScreenView superview];	
-	if([searchTableView superview] != wrapperView)
-	{
-		if(searchTableView == nil)
-		{
-			[self searchTableView];
-		} 
-		else 
-		{
-			[searchTableView reloadSections:[NSIndexSet indexSetWithIndex:0]
-						   withRowAnimation:UITableViewRowAnimationFade];
-		}
-//		[wrapperView insertSubview:searchTableView aboveSubview:searchScreenView];
-	} 
-	else 
-	{
-		[searchTableView reloadSections:[NSIndexSet indexSetWithIndex:0]
-					   withRowAnimation:UITableViewRowAnimationFade];
-	}
+	[self updateSearchResultIndexes];
 }
 
 - (void)searchBarSearchButtonClicked:(UISearchBar *)searchBar                    
@@ -1493,7 +1531,9 @@ if(ourTableView != tableview)	\
 	if (cell == nil)
 	{
 		cell = [[[TiUITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:row.tableClass row:row] autorelease];
-		[cell setBounds:CGRectMake(0, 0, [tableview bounds].size.width,44)];
+        CGSize cellSize = [(TiUITableViewCell*)cell computeCellSize];
+		[cell setBounds:CGRectMake(0, 0, cellSize.width,cellSize.height)];
+        [[cell contentView] setBounds:[cell bounds]];
 	}
 	else
 	{
@@ -1501,7 +1541,11 @@ if(ourTableView != tableview)	\
 		// So what we're going to do with this cell is clear its contents out, then redraw it as if it were a new cell.
 		// Keeps the cell pool small and reusable.
 		[TiUITableViewRowProxy clearTableRowCell:cell];
-		
+        
+        // Have to reset the proxy on the cell, and the row's callback cell, as it may have been cleared in reuse operations (or reassigned)
+        [(TiUITableViewCell*)cell setProxy:row];
+        [row setCallbackCell:(TiUITableViewCell*)cell];
+        
 		/*
 		 * Old-school style:
 		// in the case of a reuse, we need to tell the row proxy to update the data
@@ -1909,10 +1953,6 @@ if(ourTableView != tableview)	\
 		hasTitle = YES;
 		size+=[tableview sectionFooterHeight];
 	}
-	if ([tableview tableFooterView]!=nil)
-	{
-		size+=[tableview tableFooterView].frame.size.height;
-	}
 	if (hasTitle && size < DEFAULT_SECTION_HEADERFOOTER_HEIGHT)
 	{
 		size += DEFAULT_SECTION_HEADERFOOTER_HEIGHT;
@@ -1968,7 +2008,7 @@ if(ourTableView != tableview)	\
 
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView
 {	
-	if (scrollView.isDragging) 
+	if (scrollView.isDragging || scrollView.isDecelerating) 
 	{
 		if ([self.proxy _hasListeners:@"scroll"])
 		{
@@ -2009,6 +2049,10 @@ if(ourTableView != tableview)	\
 		[event setObject:[TiUtils sizeToDictionary:tableview.bounds.size] forKey:@"size"];
 		[self.proxy fireEvent:@"scrollEnd" withObject:event];
 	}
+    // Update keyboard status to insure that any fields actively being edited remain in view
+    if ([[[TiApp app] controller] keyboardVisible]) {
+        [[[TiApp app] controller] performSelector:@selector(handleNewKeyboardStatus) withObject:nil afterDelay:0.0];
+    }
 }
 
 - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView 

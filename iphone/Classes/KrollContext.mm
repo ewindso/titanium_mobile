@@ -15,6 +15,9 @@
 #include <pthread.h>
 #import "TiDebugger.h"
 
+#ifdef KROLL_COVERAGE
+# import "KrollCoverage.h"
+#endif
 
 static unsigned short KrollContextIdCounter = 0;
 static unsigned short KrollContextCount = 0;
@@ -141,6 +144,10 @@ static TiValueRef MakeTimer(TiContextRef context, TiObjectRef jsFunction, TiValu
 static TiValueRef ClearTimerCallback (TiContextRef jsContext, TiObjectRef jsFunction, TiObjectRef jsThis, size_t argCount,
 									  const TiValueRef args[], TiValueRef* exception)
 {
+#ifdef KROLL_COVERAGE
+	[KrollCoverageObject incrementTopLevelFunctionCall:TOP_LEVEL name:@"clearTimer"];
+#endif
+
 	if (argCount!=1)
 	{
 		return ThrowException(jsContext, @"invalid number of arguments", exception);
@@ -154,6 +161,10 @@ static TiValueRef ClearTimerCallback (TiContextRef jsContext, TiObjectRef jsFunc
 static TiValueRef SetIntervalCallback (TiContextRef jsContext, TiObjectRef jsFunction, TiObjectRef jsThis, size_t argCount,
 									   const TiValueRef args[], TiValueRef* exception)
 {
+#ifdef KROLL_COVERAGE
+	[KrollCoverageObject incrementTopLevelFunctionCall:TOP_LEVEL name:@"setInterval"];
+#endif
+
 	//NOTE: function can be either Function or String object type
 	if (argCount!=2)
 	{
@@ -169,6 +180,10 @@ static TiValueRef SetIntervalCallback (TiContextRef jsContext, TiObjectRef jsFun
 static TiValueRef SetTimeoutCallback (TiContextRef jsContext, TiObjectRef jsFunction, TiObjectRef jsThis, size_t argCount,
 									  const TiValueRef args[], TiValueRef* exception)
 {
+#ifdef KROLL_COVERAGE
+	[KrollCoverageObject incrementTopLevelFunctionCall:TOP_LEVEL name:@"setTimeout"];
+#endif
+
 	if (argCount!=2)
 	{
 		return ThrowException(jsContext, @"invalid number of arguments", exception);
@@ -183,6 +198,10 @@ static TiValueRef SetTimeoutCallback (TiContextRef jsContext, TiObjectRef jsFunc
 static TiValueRef CommonJSRequireCallback (TiContextRef jsContext, TiObjectRef jsFunction, TiObjectRef jsThis, size_t argCount,
 									  const TiValueRef args[], TiValueRef* exception)
 {
+#ifdef KROLL_COVERAGE
+	[KrollCoverageObject incrementTopLevelFunctionCall:TOP_LEVEL name:@"require"];
+#endif
+
 	if (argCount!=1)
 	{
 		return ThrowException(jsContext, @"invalid number of arguments", exception);
@@ -204,6 +223,10 @@ static TiValueRef CommonJSRequireCallback (TiContextRef jsContext, TiObjectRef j
 static TiValueRef LCallback (TiContextRef jsContext, TiObjectRef jsFunction, TiObjectRef jsThis, size_t argCount,
 										   const TiValueRef args[], TiValueRef* exception)
 {
+#ifdef KROLL_COVERAGE
+	[KrollCoverageObject incrementTopLevelFunctionCall:TOP_LEVEL name:@"L"];
+#endif
+
 	if (argCount<1)
 	{
 		return ThrowException(jsContext, @"invalid number of arguments", exception);
@@ -226,6 +249,10 @@ static TiValueRef LCallback (TiContextRef jsContext, TiObjectRef jsFunction, TiO
 static TiValueRef StringFormatCallback (TiContextRef jsContext, TiObjectRef jsFunction, TiObjectRef jsThis, size_t argCount,
 							 const TiValueRef args[], TiValueRef* exception)
 {
+#ifdef KROLL_COVERAGE
+	[KrollCoverageObject incrementTopLevelFunctionCall:@"String" name:@"format"];
+#endif
+
 	if (argCount<2)
 	{
 		return ThrowException(jsContext, @"invalid number of arguments", exception);
@@ -236,8 +263,26 @@ static TiValueRef StringFormatCallback (TiContextRef jsContext, TiObjectRef jsFu
 	
 	// convert string references to objects
 	format = [format stringByReplacingOccurrencesOfString:@"%s" withString:@"%@"];
+	format = [format stringByReplacingOccurrencesOfString:@"%1$s" withString:@"%1$@"];
+	format = [format stringByReplacingOccurrencesOfString:@"%2$s" withString:@"%2$@"];
+	format = [format stringByReplacingOccurrencesOfString:@"%3$s" withString:@"%3$@"];
+	format = [format stringByReplacingOccurrencesOfString:@"%4$s" withString:@"%4$@"];
+	format = [format stringByReplacingOccurrencesOfString:@"%5$s" withString:@"%5$@"];
+	format = [format stringByReplacingOccurrencesOfString:@"%6$s" withString:@"%6$@"];
+	format = [format stringByReplacingOccurrencesOfString:@"%7$s" withString:@"%7$@"];
+	format = [format stringByReplacingOccurrencesOfString:@"%8$s" withString:@"%8$@"];
+	format = [format stringByReplacingOccurrencesOfString:@"%9$s" withString:@"%9$@"];
 	// we're dealing with double, so convert so that it formats right 
 	format = [format stringByReplacingOccurrencesOfString:@"%d" withString:@"%1.0f"];
+	format = [format stringByReplacingOccurrencesOfString:@"%1$d" withString:@"%1$1.0f"];
+	format = [format stringByReplacingOccurrencesOfString:@"%2$d" withString:@"%2$1.0f"];
+	format = [format stringByReplacingOccurrencesOfString:@"%3$d" withString:@"%3$1.0f"];
+	format = [format stringByReplacingOccurrencesOfString:@"%4$d" withString:@"%4$1.0f"];
+	format = [format stringByReplacingOccurrencesOfString:@"%5$d" withString:@"%5$1.0f"];
+	format = [format stringByReplacingOccurrencesOfString:@"%6$d" withString:@"%6$1.0f"];
+	format = [format stringByReplacingOccurrencesOfString:@"%7$d" withString:@"%7$1.0f"];
+	format = [format stringByReplacingOccurrencesOfString:@"%8$d" withString:@"%8$1.0f"];
+	format = [format stringByReplacingOccurrencesOfString:@"%9$d" withString:@"%9$1.0f"];
 	
 	@try 
 	{
@@ -295,6 +340,10 @@ static TiValueRef StringFormatCallback (TiContextRef jsContext, TiObjectRef jsFu
 static TiValueRef StringFormatDateCallback (TiContextRef jsContext, TiObjectRef jsFunction, TiObjectRef jsThis, size_t argCount,
 										const TiValueRef args[], TiValueRef* exception)
 {
+#ifdef KROLL_COVERAGE
+	[KrollCoverageObject incrementTopLevelFunctionCall:@"String" name:@"formatDate"];
+#endif
+
 	if (argCount<1)
 	{
 		return ThrowException(jsContext, @"invalid number of arguments", exception);
@@ -323,19 +372,7 @@ static TiValueRef StringFormatDateCallback (TiContextRef jsContext, TiObjectRef 
 	
 	@try 
 	{
-		NSString* result;
-		// Only available in iOS4+
-		if ([TiUtils isIOS4OrGreater]) {
-			result = [NSDateFormatter localizedStringFromDate:date dateStyle:style timeStyle:NSDateFormatterNoStyle];
-		}
-		else {
-			NSLocale* locale = [NSLocale currentLocale];
-			NSDateFormatter* formatter = [[[NSDateFormatter alloc] init] autorelease];
-			[formatter setLocale:locale];
-			[formatter setDateStyle:style];
-			[formatter setTimeStyle:NSDateFormatterNoStyle];
-			result = [formatter stringFromDate:date];
-		}
+		NSString* result = [NSDateFormatter localizedStringFromDate:date dateStyle:style timeStyle:NSDateFormatterNoStyle];
 		TiValueRef value = [KrollObject toValue:ctx value:result];
 		return value;
 	}
@@ -348,6 +385,10 @@ static TiValueRef StringFormatDateCallback (TiContextRef jsContext, TiObjectRef 
 static TiValueRef StringFormatTimeCallback (TiContextRef jsContext, TiObjectRef jsFunction, TiObjectRef jsThis, size_t argCount,
 											const TiValueRef args[], TiValueRef* exception)
 {
+#ifdef KROLL_COVERAGE
+	[KrollCoverageObject incrementTopLevelFunctionCall:@"String" name:@"formatTime"];
+#endif
+
 	if (argCount<1)
 	{
 		return ThrowException(jsContext, @"invalid number of arguments", exception);
@@ -376,18 +417,7 @@ static TiValueRef StringFormatTimeCallback (TiContextRef jsContext, TiObjectRef 
 	
 	@try 
 	{
-		NSString* result;
-		if ([TiUtils isIOS4OrGreater]) {
-			result = [NSDateFormatter localizedStringFromDate:date dateStyle:NSDateFormatterNoStyle timeStyle:style];
-		}
-		else {
-			NSLocale* locale = [NSLocale currentLocale];
-			NSDateFormatter* formatter = [[[NSDateFormatter alloc] init] autorelease];
-			[formatter setLocale:locale];
-			[formatter setDateStyle:NSDateFormatterNoStyle];
-			[formatter setTimeStyle:style];
-			result = [formatter stringFromDate:date];
-		}
+		NSString* result = [NSDateFormatter localizedStringFromDate:date dateStyle:NSDateFormatterNoStyle timeStyle:style];
 		TiValueRef value = [KrollObject toValue:ctx value:result];
 		return value;
 	}
@@ -400,6 +430,10 @@ static TiValueRef StringFormatTimeCallback (TiContextRef jsContext, TiObjectRef 
 static TiValueRef StringFormatCurrencyCallback (TiContextRef jsContext, TiObjectRef jsFunction, TiObjectRef jsThis, size_t argCount,
 											const TiValueRef args[], TiValueRef* exception)
 {
+#ifdef KROLL_COVERAGE
+	[KrollCoverageObject incrementTopLevelFunctionCall:@"String" name:@"formatCurrency"];
+#endif
+
 	if (argCount<1)
 	{
 		return ThrowException(jsContext, @"invalid number of arguments", exception);
@@ -410,16 +444,7 @@ static TiValueRef StringFormatCurrencyCallback (TiContextRef jsContext, TiObject
 	
 	@try 
 	{
-		NSString* result;
-		if ([TiUtils isIOS4OrGreater]) {
-			result = [NSNumberFormatter localizedStringFromNumber:number numberStyle:NSNumberFormatterCurrencyStyle];
-		}
-		else {
-			NSNumberFormatter* formatter = [[[NSNumberFormatter alloc] init] autorelease];
-			NSLocale* locale = [NSLocale currentLocale];
-			[formatter setNumberStyle:NSNumberFormatterCurrencyStyle];
-			result = [formatter stringFromNumber:number];
-		}
+		NSString* result = [NSNumberFormatter localizedStringFromNumber:number numberStyle:NSNumberFormatterCurrencyStyle];
 		TiValueRef value = [KrollObject toValue:ctx value:result];
 		return value;
 	}
@@ -432,6 +457,10 @@ static TiValueRef StringFormatCurrencyCallback (TiContextRef jsContext, TiObject
 static TiValueRef StringFormatDecimalCallback (TiContextRef jsContext, TiObjectRef jsFunction, TiObjectRef jsThis, size_t argCount,
 												const TiValueRef args[], TiValueRef* exception)
 {
+#ifdef KROLL_COVERAGE
+	[KrollCoverageObject incrementTopLevelFunctionCall:@"String" name:@"formatDecimal"];
+#endif
+
 	if (argCount<1)
 	{
 		return ThrowException(jsContext, @"invalid number of arguments", exception);
@@ -810,20 +839,27 @@ static TiValueRef StringFormatDecimalCallback (TiContextRef jsContext, TiObjectR
 
 -(BOOL)isKJSThread
 {
+#if 1
+	return (cachedThreadId == [NSThread currentThread] ? YES : NO);
+#else
 	NSString *name = [[NSThread currentThread] name];
 	return [name isEqualToString:[self threadName]];
+#endif
 }
 
 -(void)invoke:(id)object
 {
+	pthread_rwlock_rdlock(&KrollGarbageCollectionLock);
 	//Mwahahaha! Pre-emptively putting in NSOperations before the Queue.
 	if([object isKindOfClass:[NSOperation class]])
 	{
 		[(NSOperation *)object start];
+		pthread_rwlock_unlock(&KrollGarbageCollectionLock);
 		return;
 	}
 
 	[object invoke:self];
+	pthread_rwlock_unlock(&KrollGarbageCollectionLock);
 }
 
 -(void)enqueue:(id)obj
@@ -941,6 +977,7 @@ static TiValueRef StringFormatDecimalCallback (TiContextRef jsContext, TiObjectR
 {
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	[[NSThread currentThread] setName:[self threadName]];
+	cachedThreadId = [NSThread currentThread];
 	pthread_rwlock_rdlock(&KrollGarbageCollectionLock);
 //	context = TiGlobalContextCreateInGroup([TiApp contextGroup],NULL);
 	context = TiGlobalContextCreate(NULL);
@@ -1054,9 +1091,9 @@ static TiValueRef StringFormatDecimalCallback (TiContextRef jsContext, TiObjectR
 		loopCount++;
 		
 		// if we're suspended, we simply wait for resume
+        [condition lock];
 		if (suspended)
 		{
-			[condition lock];
 			//TODO: Suspended currently only is set on app pause/resume. We should have it happen whenever a JS thread
 			//should be paused. Paused being no timers waiting, no events being triggered, no code to execute.
 			if (suspended && ([queue count] == 0))
@@ -1065,15 +1102,18 @@ static TiValueRef StringFormatDecimalCallback (TiContextRef jsContext, TiObjectR
 				[condition wait];
 				VerboseLog(@"Resumed! %@",self)
 			} 
-			[condition unlock];
 		}
+        [condition unlock];
 		
 		// we're stopped, we need to check to see if we have stuff that needs to
 		// be executed before we can exit.  if we have stuff in the queue, we 
 		// process just those events and then we immediately exit and clean up
 		// otherwise, we can just exit immediately from here
+
+        [condition lock];
 		if (stopped)
 		{
+            [condition unlock];
 			exit_after_flush = YES;
 			int queue_count = 0;
 			
@@ -1092,20 +1132,29 @@ static TiValueRef StringFormatDecimalCallback (TiContextRef jsContext, TiObjectR
 				break;
 			}
 		}
-		
-		
-		// we have a pending GC request to try and reclaim memory
-		if (gcrequest)
-		{
-			[self forceGarbageCollectNow];
-		}
-		
+        // If this is the case, then we were not halted, and must unlock the condition.
+        if (!exit_after_flush) {
+            [condition unlock];
+        }
+
 		BOOL stuff_in_queue = YES;
-		
+		int internalLoopCount = 0;
 		// as long as we have stuff in the queue to process, we 
 		// run our thread event pump and process events
 		while (stuff_in_queue)
 		{
+			if (internalLoopCount > GC_LOOP_COUNT) {
+				[self gc]; //This only sets up the gcrequest variable.
+				internalLoopCount = 0;
+                loopCount = 0;
+			}
+			internalLoopCount ++;
+			// we have a pending GC request to try and reclaim memory
+			if (gcrequest)
+			{
+				[self forceGarbageCollectNow];
+			}
+			
 			// don't hold the queue lock
 			// while we're processing an event so we 
 			// can't deadlock on recursive callbacks
@@ -1150,7 +1199,11 @@ static TiValueRef StringFormatDecimalCallback (TiContextRef jsContext, TiObjectR
 					entry = nil;
 				}				
 			}
+<<<<<<< HEAD
             [pool_ drain];
+=======
+            [pool_ release];
+>>>>>>> master
 		}
 
 		// TODO: experiment, attempt to collect more often than usual given our environment

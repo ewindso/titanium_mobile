@@ -46,6 +46,7 @@
 	NSMutableDictionary *timers;
 	NSRecursiveLock *timerLock;
 	void *debugger;
+	id cachedThreadId;
 }
 
 @property(nonatomic,readwrite,assign) id<KrollDelegate> delegate;
@@ -75,6 +76,7 @@
 -(void)unregisterTimer:(double)timerId;
 
 -(int)forceGarbageCollectNow;
+-(NSString*)threadName;
 
 @end
 

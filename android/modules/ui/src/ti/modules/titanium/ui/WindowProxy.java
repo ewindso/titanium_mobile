@@ -1,6 +1,6 @@
 /**
  * Appcelerator Titanium Mobile
- * Copyright (c) 2009-2010 by Appcelerator, Inc. All Rights Reserved.
+ * Copyright (c) 2009-2011 by Appcelerator, Inc. All Rights Reserved.
  * Licensed under the terms of the Apache Public License
  * Please see the LICENSE included with this distribution for details.
  */
@@ -21,14 +21,27 @@ import org.appcelerator.titanium.proxy.TiViewProxy;
 import org.appcelerator.titanium.proxy.TiWindowProxy;
 import org.appcelerator.titanium.util.Log;
 import org.appcelerator.titanium.util.TiConfig;
+import org.appcelerator.titanium.util.TiConvert;
+import org.appcelerator.titanium.util.TiOrientationHelper;
 import org.appcelerator.titanium.view.TiUIView;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.PixelFormat;
 import android.os.Message;
 import android.os.Messenger;
 
 @Kroll.proxy(creatableInModule=UIModule.class)
+@Kroll.dynamicApis(properties = {
+	TiC.PROPERTY_TITLEID,
+	TiC.PROPERTY_URL,
+	TiC.PROPERTY_WINDOW_SOFT_INPUT_MODE,
+	TiC.PROPERTY_NAV_BAR_HIDDEN,
+	TiC.PROPERTY_MODAL,
+	TiC.PROPERTY_FULLSCREEN,
+	TiC.PROPERTY_EXIT_ON_CLOSE,
+	TiC.PROPERTY_WINDOW_PIXEL_FORMAT
+})
 public class WindowProxy extends TiWindowProxy
 {
 	private static final String LCAT = "WindowProxy";
@@ -97,6 +110,13 @@ public class WindowProxy extends TiWindowProxy
 
 		Messenger messenger = new Messenger(getUIHandler());
 		view = new TiUIWindow(this, options, messenger, MSG_FINISH_OPEN);
+
+		// make sure the window opens according to any orientation modes 
+		// set on it before the window actually opened
+		//if (((TiUIWindow) view).lightWeight)
+		//{
+		//	updateOrientation();
+		//}
 	}
 
 	public void fillIntentForTab(Intent intent)
@@ -159,7 +179,37 @@ public class WindowProxy extends TiWindowProxy
 	{
 		Log.w(LCAT, "setLeftNavButton not supported in Android");
 	}
+
+	@Kroll.method @Kroll.getProperty
+	public int getOrientation()
+	{
+		Activity activity = getTiContext().getActivity();
+
+		if (activity != null)
+		{
+			return TiOrientationHelper.convertConfigToTiOrientationMode(activity.getResources().getConfiguration().orientation);
+		}
+		Log.e(LCAT, "unable to get orientation, activity not found for window");
+		return TiOrientationHelper.ORIENTATION_UNKNOWN;
+	}
+
+	@Kroll.method @Kroll.getProperty
+	public int getWindowPixelFormat() 
+	{
+		int pixelFormat = PixelFormat.UNKNOWN;
+		
+		if (hasProperty(TiC.PROPERTY_WINDOW_PIXEL_FORMAT)) {
+			pixelFormat = TiConvert.toInt(getProperty(TiC.PROPERTY_WINDOW_PIXEL_FORMAT));
+		}
+		return pixelFormat;
+	}
 	
+	@Kroll.method @Kroll.setProperty(retain=false)
+	public void setWindowPixelFormat(int pixelFormat)
+	{
+		setProperty(TiC.PROPERTY_WINDOW_PIXEL_FORMAT, pixelFormat, true);
+	}
+
 	@Override
 	protected Activity handleGetActivity() 
 	{

@@ -1,12 +1,14 @@
 /**
  * Appcelerator Titanium Mobile
- * Copyright (c) 2009-2010 by Appcelerator, Inc. All Rights Reserved.
+ * Copyright (c) 2009-2011 by Appcelerator, Inc. All Rights Reserved.
  * Licensed under the terms of the Apache Public License
  * Please see the LICENSE included with this distribution for details.
  */
 package ti.modules.titanium.ui;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollProxy;
@@ -25,6 +27,16 @@ import android.app.Activity;
 import android.os.Message;
 
 @Kroll.proxy(creatableInModule=UIModule.class)
+@Kroll.dynamicApis(properties = {
+	TiC.PROPERTY_FILTER_ATTRIBUTE,
+	TiC.PROPERTY_FILTER_CASE_INSENSITIVE,
+	TiC.PROPERTY_HEADER_TITLE,
+	TiC.PROPERTY_HEADER_VIEW,
+	TiC.PROPERTY_FOOTER_TITLE,
+	TiC.PROPERTY_FOOTER_VIEW,
+	TiC.PROPERTY_SEARCH,
+	TiC.PROPERTY_SEPARATOR_COLOR
+})
 public class TableViewProxy extends TiViewProxy
 {
 	private static final String LCAT = "TableViewProxy";
@@ -129,36 +141,58 @@ public class TableViewProxy extends TiViewProxy
 		}
 	}
 
+	// options argument exists in order to maintain parity with iOS, do not remove
 	@Kroll.method
-	public void appendRow(Object row, @Kroll.argument(optional=true) KrollDict options) {
+	public void appendRow(Object rows, @Kroll.argument(optional=true) KrollDict options)
+	{
 		TiContext ctx = getTiContext();
 		if (ctx == null) {
 			Log.w(LCAT, "Context has been GC'd, not appending row");
 			return;
 		}
 		if (ctx.isUIThread()) {
-			handleAppendRow(row);
+			handleAppendRow(rows);
 			return;
 		}
 
-		sendBlockingUiMessage(MSG_APPEND_ROW, row);
+		sendBlockingUiMessage(MSG_APPEND_ROW, rows);
 	}
 
-	private void handleAppendRow(Object row) {
-		TableViewRowProxy rowProxy = rowProxyFor(row);
-		ArrayList<TableViewSectionProxy> sections = getSections();
-		if (sections.size() == 0) {
-			Object[] data = { rowProxy };
-			processData(data);
-		} else {
-			TableViewSectionProxy lastSection = sections.get(sections.size() - 1);
-			TableViewSectionProxy addedToSection = addRowToSection(rowProxy, lastSection);
-			if (lastSection == null || !lastSection.equals(addedToSection)) {
-				sections.add(addedToSection);
-			}
-			rowProxy.setProperty(TiC.PROPERTY_SECTION, addedToSection);
-			rowProxy.setProperty(TiC.PROPERTY_PARENT, addedToSection);
+	private void handleAppendRow(Object rows)
+	{
+		Object[] rowList = null;
+
+		if (rows instanceof Object[])
+		{
+			rowList = (Object[])rows;
 		}
+		else
+		{
+			rowList = new Object[] { rows };
+		}
+
+		ArrayList<TableViewSectionProxy> sections = getSections();
+		if (sections.size() == 0)
+		{
+			processData(rowList);
+		}
+		else
+		{
+			for (int i = 0; i < rowList.length; i++)
+			{
+				TableViewRowProxy rowProxy = rowProxyFor(rowList[i]);
+
+				TableViewSectionProxy lastSection = sections.get(sections.size() - 1);
+				TableViewSectionProxy addedToSection = addRowToSection(rowProxy, lastSection);
+				if (lastSection == null || !lastSection.equals(addedToSection))
+				{
+					sections.add(addedToSection);
+				}
+				rowProxy.setProperty(TiC.PROPERTY_SECTION, addedToSection);
+				rowProxy.setProperty(TiC.PROPERTY_PARENT, addedToSection);
+			}
+		}
+
 		getTableView().setModelDirty();
 		updateView();
 	}

@@ -29,15 +29,14 @@ import org.appcelerator.titanium.view.TiCompositeLayout.LayoutArrangement;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.graphics.PixelFormat;
 import android.os.Bundle;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
-import android.os.Build.VERSION;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.OrientationEventListener;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -48,7 +47,10 @@ public abstract class TiBaseActivity extends Activity
 	private static final String TAG = "TiBaseActivity";
 	private static final boolean DBG = TiConfig.LOGD;
 
+	private static OrientationChangedListener orientationChangedListener = null;
+
 	private boolean onDestroyFired = false;
+	private int originalOrientationMode = -1;
 
 	protected TiCompositeLayout layout;
 	protected TiActivitySupportHelper supportHelper;
@@ -56,13 +58,32 @@ public abstract class TiBaseActivity extends Activity
 	protected ActivityProxy activityProxy;
 	protected boolean mustFireInitialFocus;
 	protected TiWeakList<ConfigurationChangedListener> configChangedListeners = new TiWeakList<ConfigurationChangedListener>();
-	protected OrientationEventListener orientationListener;
 	protected int orientationDegrees;
 	protected TiMenuSupport menuHelper;
 	protected TiMessageQueue messageQueue;
 	protected Messenger messenger;
 	protected int msgActivityCreatedId = -1;
 	protected int msgId = -1;
+
+	public TiWindowProxy lwWindow;
+
+
+	// could use a normal ConfigurationChangedListener but since only orientation changes are
+	// forwarded, create a separate interface in order to limit scope and maintain clarity 
+	public static interface OrientationChangedListener
+	{
+		public void onOrientationChanged (int configOrientationMode);
+	}
+
+	public static void registerOrientationListener (OrientationChangedListener listener)
+	{
+		orientationChangedListener = listener;
+	}
+
+	public static void deregisterOrientationListener()
+	{
+		orientationChangedListener = null;
+	}
 
 	public static interface ConfigurationChangedListener
 	{
@@ -88,21 +109,6 @@ public abstract class TiBaseActivity extends Activity
 	{
 		this.window = proxy;
 		updateTitle();
-		updateOrientation();
-	}
-
-	public void updateOrientation()
-	{
-		if (window != null) {
-			if (window.getOrientationModes().length > 0) {
-				int currentOrientation = getResources().getConfiguration().orientation;
-				if (window.isOrientationMode(TiUIHelper.convertToTiOrientation(currentOrientation))) {
-					setRequestedOrientation(TiUIHelper.convertConfigToActivityOrientation(currentOrientation));
-				} else {
-					setRequestedOrientation(TiUIHelper.convertTiToActivityOrientation(window.getOrientationModes()[0]));
-				}
-			}
-		}
 	}
 
 	public ActivityProxy getActivityProxy()
@@ -128,6 +134,16 @@ public abstract class TiBaseActivity extends Activity
 	public void removeConfigurationChangedListener(ConfigurationChangedListener listener)
 	{
 		configChangedListeners.remove(listener);
+	}
+
+	public void registerOrientationChangedListener (OrientationChangedListener listener)
+	{
+		orientationChangedListener = listener;
+	}
+
+	public void deregisterOrientationChangedListener()
+	{
+		orientationChangedListener = null;
 	}
 
 	protected boolean getIntentBoolean(String property, boolean defaultValue)
@@ -239,12 +255,11 @@ public abstract class TiBaseActivity extends Activity
 		int softInputMode = getIntentInt(TiC.PROPERTY_WINDOW_SOFT_INPUT_MODE, -1);
 		boolean hasSoftInputMode = softInputMode != -1;
 		
-		if (!modal) {
-			setFullscreen(fullscreen);
-			setNavBarHidden(navBarHidden);
-		} else {
-			int flags = WindowManager.LayoutParams.FLAG_BLUR_BEHIND;
-			getWindow().setFlags(flags, flags);
+		setFullscreen(fullscreen);
+		setNavBarHidden(navBarHidden);
+		if (modal) {
+			getWindow().setFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND,
+					WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
 		}
 
 		if (hasSoftInputMode) {
@@ -277,24 +292,37 @@ public abstract class TiBaseActivity extends Activity
 				msgActivityCreatedId = intent.getIntExtra(TiC.INTENT_PROPERTY_MSG_ACTIVITY_CREATED_ID, -1);
 				msgId = intent.getIntExtra(TiC.INTENT_PROPERTY_MSG_ID, -1);
 			}
+			
+			if (intent.hasExtra(TiC.PROPERTY_WINDOW_PIXEL_FORMAT)) {
+				getWindow().setFormat(intent.getIntExtra(TiC.PROPERTY_WINDOW_PIXEL_FORMAT, PixelFormat.UNKNOWN));
+			}
 		}
 
 		// Doing this on every create in case the activity is externally created.
 		TiPlatformHelper.intializeDisplayMetrics(this);
-		orientationListener = new OrientationEventListener(this) {
-			@Override
-			public void onOrientationChanged(int orientation) {
-				TiBaseActivity.this.onOrientationChanged(orientation);
-			}
-		};
+
+		TiPlatformHelper.initializeRhinoDateFormats(this);
 
 		layout = createLayout();
+		if (intent != null && intent.hasExtra(TiC.PROPERTY_KEEP_SCREEN_ON)) {
+			layout.setKeepScreenOn(intent.getBooleanExtra(TiC.PROPERTY_KEEP_SCREEN_ON, layout.getKeepScreenOn()));
+		}
 		super.onCreate(savedInstanceState);
 		getTiApp().setWindowHandler(this);
 		windowCreated();
 
 		if (activityProxy != null) {
+			// we only want to set the current activity for good in the resume state but we need it right now.
+			// save off the existing current activity, set ourselves to be the new current activity temporarily 
+			// so we don't run into problems when we give the proxy the event
+			TiApplication tiApp = getTiApp();
+			Activity tempCurrentActivity = tiApp.getCurrentActivity();
+			tiApp.setCurrentActivity(this, this);
+
 			activityProxy.fireSyncEvent(TiC.EVENT_CREATE, null);
+
+			// set the current activity back to what it was originally
+			tiApp.setCurrentActivity(this, tempCurrentActivity);
 		}
 
 		setContentView(layout);
@@ -302,6 +330,25 @@ public abstract class TiBaseActivity extends Activity
 		sendMessage(msgActivityCreatedId);
 		// for backwards compatibility
 		sendMessage(msgId);
+
+		// store off the original orientation for the activity set in the AndroidManifest.xml
+		// for later use
+		originalOrientationMode = getRequestedOrientation();
+
+		// make sure the activity opens according to any orientation modes 
+		// set on the window before the activity was actually created 
+		if (window != null)
+		{
+			if (window.getOrientationModes() != null)
+			{
+				window.updateOrientation();
+			}
+		}
+	}
+
+	public int getOriginalOrientationMode()
+	{
+		return originalOrientationMode;
 	}
 
 	protected void sendMessage(final int msgId)
@@ -460,67 +507,6 @@ public abstract class TiBaseActivity extends Activity
 		return menuHelper.onPrepareOptionsMenu(super.onPrepareOptionsMenu(menu), menu);
 	}
 
-	public int getOrientationDegrees()
-	{
-		return orientationDegrees;
-	}
-
-	public void enableOrientationListener()
-	{
-		orientationListener.enable();
-	}
-
-	public void disableOrientationListener()
-	{
-		orientationListener.disable();
-	}
-
-	// orientation must be Titanium orientation value
-	public void requestOrientation(int orientation)
-	{
-		if (window.isOrientationMode(orientation)) {
-			setRequestedOrientation(TiUIHelper.convertTiToActivityOrientation(orientation));
-		}
-	}
-
-	protected void onOrientationChanged(int degrees)
-	{
-		// once setRequestedOrientation is called, onConfigurationChanged is no longer called
-		// with new orientation changes from the OS. OrientationEventListener goes through
-		// the SensorManager directly, and allows us to reset correctly
-		orientationDegrees = degrees;
-		if (degrees != OrientationEventListener.ORIENTATION_UNKNOWN) {
-			if (window != null) {
-				if (window.getOrientationModes().length > 0) {
-					int newOrientation = -1;
-
-					// is the degree valid to be used for shifting orientation?
-					if (degrees > 350 || degrees < 10) {
-						// set portrait
-						newOrientation = 1;
-					} else if ((degrees > 80 && degrees < 100) && VERSION.SDK_INT == 9) {
-						// set reverse landscape
-						// newOrientation = 8;
-					} else if ((degrees > 170 && degrees < 190) && VERSION.SDK_INT == 9) {
-						// set reverse portrait
-						// newOrientation = 9;
-					} else if (degrees > 260 && degrees < 280) {
-						// set landscape
-						newOrientation = 0;
-					}
-
-					if (newOrientation != -1) {
-						// only set the orientation if it is not the current orientation
-						int currentOrientation = getResources().getConfiguration().orientation;
-						if (newOrientation != TiUIHelper.convertConfigToActivityOrientation(currentOrientation)) {
-							requestOrientation(TiUIHelper.convertToTiOrientation(newOrientation));
-						}
-					}
-				}
-			}
-		}
-	}
-
 	@Override
 	public void onConfigurationChanged(Configuration newConfig)
 	{
@@ -529,6 +515,11 @@ public abstract class TiBaseActivity extends Activity
 			if (listener.get() != null) {
 				listener.get().onConfigurationChanged(this, newConfig);
 			}
+		}
+
+		if (orientationChangedListener != null)
+		{
+			orientationChangedListener.onOrientationChanged (newConfig.orientation);
 		}
 	}
 
@@ -592,7 +583,17 @@ public abstract class TiBaseActivity extends Activity
 			mustFireInitialFocus = true;
 		}
 		if (activityProxy != null) {
+			// we only want to set the current activity for good in the resume state but we need it right now.
+			// save off the existing current activity, set ourselves to be the new current activity temporarily 
+			// so we don't run into problems when we give the proxy the event
+			TiApplication tiApp = getTiApp();
+			Activity tempCurrentActivity = tiApp.getCurrentActivity();
+			tiApp.setCurrentActivity(this, this);
+
 			activityProxy.fireSyncEvent(TiC.EVENT_START, null);
+
+			// set the current activity back to what it was originally
+			tiApp.setCurrentActivity(this, tempCurrentActivity);
 		}
 	}
 
@@ -619,7 +620,17 @@ public abstract class TiBaseActivity extends Activity
 			Log.d(TAG, "Activity " + this + " onRestart");
 		}
 		if (activityProxy != null) {
+			// we only want to set the current activity for good in the resume state but we need it right now.
+			// save off the existing current activity, set ourselves to be the new current activity temporarily 
+			// so we don't run into problems when we give the proxy the event
+			TiApplication tiApp = getTiApp();
+			Activity tempCurrentActivity = tiApp.getCurrentActivity();
+			tiApp.setCurrentActivity(this, this);
+
 			activityProxy.fireSyncEvent(TiC.EVENT_RESTART, null);
+
+			// set the current activity back to what it was originally
+			tiApp.setCurrentActivity(this, tempCurrentActivity);
 		}
 	}
 
@@ -645,9 +656,6 @@ public abstract class TiBaseActivity extends Activity
 
 		fireOnDestroy();
 
-		if (orientationListener != null) {
-			orientationListener.disable();
-		}
 		if (layout != null) {
 			Log.e(TAG, "Layout cleanup.");
 			layout.removeAllViews();
@@ -690,7 +698,7 @@ public abstract class TiBaseActivity extends Activity
 		if (window != null) {
 			KrollDict data = new KrollDict();
 			data.put(TiC.EVENT_PROPERTY_SOURCE, window);
-			window.fireEvent(TiC.EVENT_CLOSE, data);
+			window.fireSyncEvent(TiC.EVENT_CLOSE, data);
 		}
 
 		boolean animate = getIntentBoolean(TiC.PROPERTY_ANIMATE, true);

@@ -9,7 +9,6 @@
 #import "TiUtils.h"
 
 #ifdef USE_TI_APPIOS
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
 
 @implementation TiAppiOSLocalNotificationProxy
 
@@ -17,18 +16,16 @@
 
 -(void)dealloc
 {
-	[self performSelectorOnMainThread:@selector(cancel:) withObject:nil waitUntilDone:NO];
+	[self cancel:nil];
 	RELEASE_TO_NIL(notification);
 	[super dealloc];
 }
 
 -(void)cancel:(id)args
 {
-	ENSURE_UI_THREAD(cancel,args);
-	[[UIApplication sharedApplication] cancelLocalNotification:notification];
+	[[UIApplication sharedApplication] performSelectorOnMainThread:@selector(cancelLocalNotification:) withObject:notification waitUntilDone:NO];
 }
 
 @end
 
-#endif
 #endif

@@ -1,6 +1,6 @@
 /**
  * Appcelerator Titanium Mobile
- * Copyright (c) 2009-2010 by Appcelerator, Inc. All Rights Reserved.
+ * Copyright (c) 2009-2011 by Appcelerator, Inc. All Rights Reserved.
  * Licensed under the terms of the Apache Public License
  * Please see the LICENSE included with this distribution for details.
  */
@@ -9,14 +9,18 @@ package ti.modules.titanium.ui;
 import org.appcelerator.kroll.KrollInvocation;
 import org.appcelerator.kroll.KrollModule;
 import org.appcelerator.kroll.annotations.Kroll;
+import org.appcelerator.titanium.TiApplication;
 import org.appcelerator.titanium.TiBaseActivity;
 import org.appcelerator.titanium.TiContext;
+import org.appcelerator.titanium.proxy.TiWindowProxy;
 import org.appcelerator.titanium.util.Log;
 import org.appcelerator.titanium.util.TiConvert;
+import org.appcelerator.titanium.util.TiOrientationHelper;
 import org.appcelerator.titanium.util.TiUIHelper;
 import org.appcelerator.titanium.view.TiDrawableReference;
 
 import android.app.Activity;
+import android.content.pm.ActivityInfo;
 import android.content.res.Resources;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
@@ -24,6 +28,9 @@ import android.view.Window;
 import android.widget.Toast;
 
 @Kroll.module
+@Kroll.dynamicApis(properties = {
+	"currentWindow"
+})
 public class UIModule extends KrollModule
 {
 	@Kroll.constant public static final int RETURNKEY_GO = 0;
@@ -75,13 +82,13 @@ public class UIModule extends KrollModule
 	@Kroll.constant public static final String TEXT_VERTICAL_ALIGNMENT_CENTER = "middle";
 	@Kroll.constant public static final String TEXT_VERTICAL_ALIGNMENT_TOP = "top";
 	
-	@Kroll.constant public static final int PORTRAIT = TiUIHelper.PORTRAIT;
-	@Kroll.constant public static final int UPSIDE_PORTRAIT = TiUIHelper.UPSIDE_PORTRAIT;
-	@Kroll.constant public static final int LANDSCAPE_LEFT = TiUIHelper.LANDSCAPE_LEFT;
-	@Kroll.constant public static final int LANDSCAPE_RIGHT = TiUIHelper.LANDSCAPE_RIGHT;
+	@Kroll.constant public static final int PORTRAIT = TiOrientationHelper.ORIENTATION_PORTRAIT;
+	@Kroll.constant public static final int UPSIDE_PORTRAIT = TiOrientationHelper.ORIENTATION_PORTRAIT_REVERSE;
+	@Kroll.constant public static final int LANDSCAPE_LEFT = TiOrientationHelper.ORIENTATION_LANDSCAPE;
+	@Kroll.constant public static final int LANDSCAPE_RIGHT = TiOrientationHelper.ORIENTATION_LANDSCAPE_REVERSE;
 	@Kroll.constant public static final int FACE_UP = TiUIHelper.FACE_UP;
 	@Kroll.constant public static final int FACE_DOWN = TiUIHelper.FACE_DOWN;
-	@Kroll.constant public static final int UNKNOWN = TiUIHelper.UNKNOWN;
+	@Kroll.constant public static final int UNKNOWN = TiOrientationHelper.ORIENTATION_UNKNOWN;
 	
 	@Kroll.constant public static final int PICKER_TYPE_PLAIN = -1;
 	@Kroll.constant public static final int PICKER_TYPE_TIME = 0;
@@ -132,15 +139,42 @@ public class UIModule extends KrollModule
 			}
 		}
 	}
+
 	@Kroll.setProperty(runOnUiThread=true) @Kroll.method(runOnUiThread=true)
-	public void setOrientation(KrollInvocation invocation, int orientation)
+	public void setOrientation(KrollInvocation invocation, int tiOrientationMode)
 	{
-		Activity activity = invocation.getTiContext().getActivity();
-		if (activity != null) {
-			if (activity instanceof TiBaseActivity) {
-				((TiBaseActivity)activity).requestOrientation(orientation);
-			} else {
-				activity.setRequestedOrientation(TiUIHelper.convertTiToActivityOrientation(orientation));
+		Activity activity = TiApplication.getInstance().getCurrentActivity();
+		if (activity instanceof TiBaseActivity)
+		{
+			int[] orientationModes;
+
+			if (tiOrientationMode == -1)
+			{
+				orientationModes = new int[] {};
+			}
+			else
+			{
+				orientationModes = new int[] {tiOrientationMode};
+			}
+
+			// this should only be entered if a LW window is created on top of the root activity
+			TiBaseActivity tiBaseActivity = (TiBaseActivity)activity;
+			TiWindowProxy windowProxy = tiBaseActivity.getWindowProxy();
+
+			if (windowProxy == null)
+			{
+				if (tiBaseActivity.lwWindow != null)
+				{
+					tiBaseActivity.lwWindow.setOrientationModes(orientationModes);
+				}
+				else
+				{
+					Log.e(LCAT, "no window has been associated with activity, unable to set orientation");
+				}
+			}
+			else
+			{
+				windowProxy.setOrientationModes(orientationModes);
 			}
 		}
 	}

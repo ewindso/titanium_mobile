@@ -27,13 +27,16 @@ public class SoundProxy extends KrollProxy
 	private static final String LCAT = "SoundProxy";
 	private static final boolean DBG = TiConfig.LOGD;
 
+	public static final String PROPERTY_VOLUME = "volume";
+
 	protected TiSound snd;
 
 	public SoundProxy(TiContext tiContext)
 	{
 		super(tiContext);
 		tiContext.addOnLifecycleEventListener(this);
-		setProperty("volume", 0.5, true);
+		setProperty(PROPERTY_VOLUME, 0.5, true);
+		setProperty(TiC.PROPERTY_TIME, 0d, false);
 	}
 	
 	@Override
@@ -166,12 +169,13 @@ public class SoundProxy extends KrollProxy
 	}
 
 	@Kroll.method @Kroll.getProperty
-	public int getTime() {
+	public double getTime() {
 		TiSound s = getSound();
 		if (s != null) {
-			return s.getTime();
-		}
-		return 0;
+			int time = s.getTime();
+			setProperty(TiC.PROPERTY_TIME, time);
+		} 
+		return TiConvert.toDouble(getProperty(TiC.PROPERTY_TIME));
 	}
 
 	@Kroll.method @Kroll.setProperty
@@ -180,6 +184,8 @@ public class SoundProxy extends KrollProxy
 			TiSound s = getSound();
 			if (s != null) {
 				s.setTime(TiConvert.toInt(pos));
+			} else {
+				setProperty(TiC.PROPERTY_TIME, TiConvert.toDouble(pos));
 			}
 		}
 	}

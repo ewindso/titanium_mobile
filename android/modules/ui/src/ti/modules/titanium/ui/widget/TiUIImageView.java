@@ -126,6 +126,20 @@ public class TiUIImageView extends TiUIView
 			
 			@Override
 			public void sizeChanged(int w, int h, int oldWidth, int oldHeight) {
+				// By the time this hits, we've already set the drawable in the view.
+				// And this runs even the first time the view is drawn (in which
+				// case oldWidth and oldHeight are 0.)  This was leading to
+				// setImage running twice unnecessarily, so the if block here
+				// will avoid a second, unnecessary call to setImage.
+				if (oldWidth == 0 && oldHeight == 0) {
+					TiImageView view = getView();
+					if (view != null) {
+						Drawable drawable = view.getImageDrawable();
+						if (drawable != null && drawable.getIntrinsicHeight() == h && drawable.getIntrinsicWidth() == w) {
+							return;
+						}
+					}
+				}
 				setImage(true);
 			}
 		});
@@ -142,6 +156,7 @@ public class TiUIImageView extends TiUIView
 						imageSources.get(0).getBitmapAsync(new BgImageLoader(getProxy().getTiContext(), requestedWidth, requestedHeight, token));
 					}
 				} else {
+					firedLoad = false;
 					setImage(true);
 				}
 			}
@@ -452,6 +467,11 @@ public class TiUIImageView extends TiUIView
 			}
 
 			int duration = (int) getDuration();
+			if (duration == 0)
+			{
+				duration = 1;
+			}
+
 			fireStart();
 			timer.schedule(animator, duration, duration);
 		} else {
@@ -553,8 +573,13 @@ public class TiUIImageView extends TiUIView
 			if (imageViewProxy.inTableView()) {
 				Bitmap currentBitmap = imageViewProxy.getBitmap();
 				if (currentBitmap != null) {
-					setImage(currentBitmap);
-					return;
+					// If the image proxy has the default image currently cached, we need to
+					// load the downloaded URL instead. TIMOB-4814
+					ArrayList<TiDrawableReference> proxySources = imageViewProxy.getImageSources();
+					if (proxySources != null && !proxySources.contains(defaultImageSource)) {
+						setImage(currentBitmap);
+						return;
+					}
 				}
 			}
 			TiDrawableReference imageref = imageSources.get(0);
@@ -581,12 +606,20 @@ public class TiUIImageView extends TiUIView
 					Bitmap bitmap = imageref.getBitmap(getParentView(), requestedWidth, requestedHeight);
 					if (bitmap != null) {
 						setImage(bitmap);
+						if (!firedLoad) {
+							fireLoad(TiC.PROPERTY_IMAGE);
+							firedLoad = true;
+						}
 					} else {
 						retryDecode(recycle);
 					}
 				}
 			} else {
 				setImage(imageref.getBitmap(getParentView(), requestedWidth, requestedHeight));
+				if (!firedLoad) {
+					fireLoad(TiC.PROPERTY_IMAGE);
+					firedLoad = true;
+				}
 			}
 		} else {
 			setImages();
@@ -679,6 +712,7 @@ public class TiUIImageView extends TiUIView
 			}
 			if (changeImage) {
 				setImageSource(source);
+				firedLoad = false;
 				setImage(false);
 			}
 		} else {
@@ -708,9 +742,11 @@ public class TiUIImageView extends TiUIView
 			view.setEnableZoomControls(TiConvert.toBoolean(newValue));
 		} else if (key.equals(TiC.PROPERTY_URL)) {
 			setImageSource(newValue);
+			firedLoad = false;
 			setImage(true);
 		} else if (key.equals(TiC.PROPERTY_IMAGE)) {
 			setImageSource(newValue);
+			firedLoad = false;
 			setImage(true);
 		} else if (key.equals(TiC.PROPERTY_IMAGES)) {
 			if (newValue instanceof Object[]) {

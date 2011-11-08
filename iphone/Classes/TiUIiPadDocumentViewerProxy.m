@@ -12,9 +12,6 @@
 #import "TiApp.h"
 #import "TiViewProxy.h"
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
-
-
 @implementation TiUIiPadDocumentViewerProxy
 
 -(void)_destroy
@@ -41,6 +38,10 @@
 
 -(void)show:(id)args
 {
+	if (![NSThread isMainThread]) {
+		[self performSelectorOnMainThread:@selector(show:) withObject:args waitUntilDone:YES];
+		return;
+	}	
 	ENSURE_SINGLE_ARG_OR_NIL(args,NSDictionary);
 	BOOL animated = [TiUtils boolValue:@"animated" properties:args def:YES];
 
@@ -167,7 +168,5 @@
 
 
 @end
-
-#endif
 
 #endif

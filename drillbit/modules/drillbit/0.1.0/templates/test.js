@@ -9,6 +9,7 @@
  */
 
 var testName = "<%= entry.name %>";
+
 <%
 methodWrap = typeof(methodWrap) == 'undefined' ? false : methodWrap;
 autoRun = typeof(autoRun) == 'undefined' ? true : autoRun;
@@ -75,12 +76,13 @@ DrillbitTest.NAME = "<%= entry.name %>";
 DrillbitTest.SOURCE = "<%= entry.sourceFile.nativePath().replace(/\\/g, "\\\\") %>";
 DrillbitTest.autoRun = <%= autoRun %>;
 
+
 <% if (methodWrap) { %>
 DrillbitTest.BEFORE_ALL = function() {
 <% } %>
 try
 {
-	appendMessage('running suite <span class="suite">' + DrillbitTest.NAME + '</span> before_all');
+	appendMessage('running suite ' + DrillbitTest.NAME + ' before_all');
 	<%= makeFunction(entry, 'before_all', 'DrillbitTest.gscope') %>
 }
 catch (e)
@@ -102,6 +104,7 @@ catch (e)
 			<%= makeFunction(entry, 'before', 'xscope') %>;
 
 			try {
+				var initialAssertions = DrillbitTest.totalAssertions;
 				DrillbitTest.currentTest = '<%= f %>';
 				DrillbitTest.runningTest('<%= entry.name %>', '<%= f %>');
 				<%= makeFunction(entry, f, 'xscope') %>;
@@ -109,7 +112,17 @@ catch (e)
 				i = f.indexOf('_as_async');
 				if (i == -1 && typeof(entry.test[f].async) == 'undefined')
 				{ %>
-					DrillbitTest.testPassed('<%= f %>',DrillbitTest.currentSubject.lineNumber);
+					var finalAssertions = DrillbitTest.totalAssertions;
+					if (finalAssertions - initialAssertions == 0) {
+						Titanium.API.warn('No assertions in test function: <%= f %>');
+					}
+					var lineNumber = 0;
+					if (DrillbitTest.currentSubject) {
+						if ("lineNumber" in DrillbitTest.currentSubject) {
+							lineNumber = DrillbitTest.currentSubject.lineNumber;
+						}					
+					}
+					DrillbitTest.testPassed('<%= f %>',lineNumber);
 				<% } %>
 			}
 			catch (___e)
@@ -134,15 +147,14 @@ catch (e)
 
 	DrillbitTest.AFTER_ALL = DrillbitTest.onComplete = function() {
 		try {
-			appendMessage('running suite <span class="suite">' + DrillbitTest.NAME + '</span> after_all');
+			appendMessage('running suite ' + DrillbitTest.NAME + ' after_all');
 			<%= makeFunction(entry, 'after_all', 'DrillbitTest.gscope') %>;
 		} catch (e) {
 			Titanium.API.error('after_all caught error:'+e+' at line: '+e.line);
 		}
 		DrillbitTest.complete();
 	};
-
-    <% if (autoRun) { %>
+	<% if (autoRun) { %>
 	DrillbitTest.runNextTest();
 	<% } %>
 

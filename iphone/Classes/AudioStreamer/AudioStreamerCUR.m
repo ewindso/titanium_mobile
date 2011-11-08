@@ -193,6 +193,12 @@ void ASReadStreamCallBackCUR
 @synthesize bitRate;
 @synthesize httpHeaders;
 @synthesize delegate;
+@synthesize bufferSize;
+
+-(NSUInteger)bufferSize
+{
+    return (bufferSize) ? bufferSize : kAQDefaultBufSize;
+}
 
 //
 // initWithURL
@@ -205,6 +211,7 @@ void ASReadStreamCallBackCUR
 	if (self != nil)
 	{
 		url = [aURL retain];
+        bufferSize = 0;
 	}
 	return self;
 }
@@ -622,7 +629,7 @@ void ASReadStreamCallBackCUR
 			if (state != AS_STOPPING &&
 				state != AS_STOPPED)
 			{
-				NSLog(@"### Not starting audio thread. State code is: %ld", state);
+				NSLog(@"### Not starting audio thread. State code is: %u", state);
 			}
 			self.state = AS_INITIALIZED;
 			[pool release];
@@ -872,7 +879,7 @@ cleanup:
 		{
 			if (state != AS_PLAYING && state != AS_PAUSED && state != AS_BUFFERING)
 			{
-				return lastProgress;
+				return lastProgress * 1000;
 			}
 
 			AudioTimeStamp queueTime;
@@ -882,7 +889,7 @@ cleanup:
 			const OSStatus AudioQueueStopped = 0x73746F70; // 0x73746F70 is 'stop'
 			if (err == AudioQueueStopped)
 			{
-				return lastProgress;
+				return lastProgress * 1000;
 			}
 			else if (err)
 			{
@@ -896,11 +903,10 @@ cleanup:
 			}
 			
 			lastProgress = progress;
-			return progress;
 		}
 	}
 	
-	return lastProgress;
+	return lastProgress * 1000;
 }
 
 //
@@ -1153,7 +1159,7 @@ cleanup:
 			}
 		}
 		
-		UInt8 bytes[kAQDefaultBufSize];
+		UInt8 bytes[[self bufferSize]];
 		CFIndex length;
 		@synchronized(self)
 		{
@@ -1165,7 +1171,7 @@ cleanup:
 			//
 			// Read the bytes from the stream
 			//
-			length = CFReadStreamRead(stream, bytes, kAQDefaultBufSize);
+			length = CFReadStreamRead(stream, bytes, [self bufferSize]);
 			
 			if (length == -1)
 			{
@@ -1335,7 +1341,7 @@ cleanup:
 		if (err || packetBufferSize == 0)
 		{
 			// No packet size available, just use the default
-			packetBufferSize = kAQDefaultBufSize;
+			packetBufferSize = [self bufferSize];
 		}
 	}
 
@@ -1621,7 +1627,7 @@ cleanup:
 		while (inNumberBytes)
 		{
 			// if the space remaining in the buffer is not enough for this packet, then enqueue the buffer.
-			size_t bufSpaceRemaining = kAQDefaultBufSize - bytesFilled;
+			size_t bufSpaceRemaining = [self bufferSize] - bytesFilled;
 			if (bufSpaceRemaining < inNumberBytes)
 			{
 				[self enqueueBuffer];
@@ -1636,7 +1642,7 @@ cleanup:
 					return;
 				}
 				
-				bufSpaceRemaining = kAQDefaultBufSize - bytesFilled;
+				bufSpaceRemaining = [self bufferSize] - bytesFilled;
 				size_t copySize;
 				if (bufSpaceRemaining < inNumberBytes)
 				{

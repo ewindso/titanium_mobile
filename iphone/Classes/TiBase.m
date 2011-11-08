@@ -5,6 +5,10 @@
  * Please see the LICENSE included with this distribution for details.
  */
 #import "TiBase.h"
+#import "TiApp.h"
+#import "TiDebugger.h"
+
+#include <stdarg.h>
 
 NSMutableArray* TiCreateNonRetainingArray() 
 {
@@ -28,6 +32,31 @@ CGPoint midpointBetweenPoints(CGPoint a, CGPoint b)
     CGFloat x = (a.x + b.x) / 2.0;
     CGFloat y = (a.y + b.y) / 2.0;
     return CGPointMake(x, y);
+}
+
+void TiLogMessage(NSString* str, ...) {
+    va_list args;
+    va_start(args, str);
+    
+    NSString* message = [[NSString alloc] initWithFormat:str arguments:args];
+    if ([[TiApp app] debugMode]) {
+        TiDebuggerLogMessage(OUT, message);
+    }
+    else {
+        const char* s = [message UTF8String];
+        if (s[0]=='[')
+        {
+            fprintf(stderr,"%s\n", s);
+            fflush(stderr);
+        }
+        else
+        {
+            fprintf(stderr,"[DEBUG] %s\n", s);
+            fflush(stderr);
+        }
+    }
+
+    [message release];
 }
 
 NSString * const kTiASCIIEncoding = @"ascii";
@@ -55,7 +84,46 @@ NSString * const kTiRemoteDeviceUUIDNotification = @"TiDeviceUUID";
 NSString * const kTiGestureShakeNotification = @"TiGestureShake";
 NSString * const kTiRemoteControlNotification = @"TiRemoteControl";
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
 NSString * const kTiLocalNotification = @"TiLocalNotification";
-#endif
 
+BOOL TiExceptionIsSafeOnMainThread = NO;
+
+void TiExceptionThrowWithNameAndReason(NSString * exceptionName, NSString * message)
+{
+	NSLog(@"[ERROR] %@",message);
+	if (TiExceptionIsSafeOnMainThread || ([NSThread isMainThread]==NO)) {
+		@throw [NSException exceptionWithName:exceptionName reason:message userInfo:nil];
+	}	
+}
+
+void TiThreadPerformOnMainThread(void (^mainBlock)(void),BOOL waitForFinish)
+{
+	__block NSException * caughtException = nil;
+	void (^wrapperBlock)() = ^{
+		BOOL exceptionsWereSafe = TiExceptionIsSafeOnMainThread;
+		TiExceptionIsSafeOnMainThread = YES;
+		@try {
+			mainBlock();
+		}
+		@catch (NSException *exception) {
+			if (waitForFinish) {
+				caughtException = [exception retain];
+			}
+		}
+		TiExceptionIsSafeOnMainThread = exceptionsWereSafe;
+	};
+	
+	if (waitForFinish)
+	{
+		dispatch_sync(dispatch_get_main_queue(), (dispatch_block_t)wrapperBlock);
+	}
+	else
+	{
+		dispatch_async(dispatch_get_main_queue(), (dispatch_block_t)wrapperBlock);
+	}
+	
+	if (caughtException != nil) {
+		[caughtException autorelease];
+		[caughtException raise];
+	}
+}

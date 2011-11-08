@@ -54,6 +54,8 @@ def generate_doc(config):
 	import markdown
 	documentation = []
 	for file in os.listdir(docdir):
+		if file in ignoreFiles or os.path.isdir(os.path.join(docdir, file)):
+			continue
 		md = open(os.path.join(docdir,file)).read()
 		html = markdown.markdown(md)
 		documentation.append({file:html});
@@ -99,7 +101,7 @@ def warn(msg):
 
 def validate_license():
 	c = open(os.path.join(cwd,'LICENSE')).read()
-	if c.find(module_license_default)!=1:
+	if c.find(module_license_default)!=-1:
 		warn('please update the LICENSE file with your license text before distributing')
 			
 def validate_manifest():

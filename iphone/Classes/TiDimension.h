@@ -29,14 +29,7 @@ extern const TiDimension TiDimensionZero;
 extern const TiDimension TiDimensionAuto;
 extern const TiDimension TiDimensionUndefined;
 
-
-TI_INLINE TiDimension TiDimensionMake(TiDimensionType type, CGFloat value)
-{
-	TiDimension dimension;
-	dimension.type = type;
-	dimension.value = value;
-	return dimension;
-}
+TiDimension TiDimensionMake(TiDimensionType type, CGFloat value);
 
 TI_INLINE TiDimension TiDimensionPixels(CGFloat value)
 {
@@ -115,6 +108,9 @@ TI_INLINE BOOL TiDimensionDidCalculateValue(TiDimension dimension,CGFloat boundi
 		case TiDimensionTypePercent:
 			*result = dimension.value * boundingValue;
 			return YES;
+		default: {
+			break;
+		}
 	}
 	return NO;
 }
@@ -137,6 +133,9 @@ TI_INLINE CGFloat TiDimensionCalculateRatio(TiDimension dimension,CGFloat boundi
 			return dimension.value;
 		case TiDimensionTypePixels:
 			return dimension.value / boundingValue;
+		default: {
+			break;
+		}
 	}
 	return 0.0;
 }

@@ -146,19 +146,48 @@
 // OK to do outside main thread
 -(TiContactsPerson*)getPersonByID:(id)arg
 {
-	ENSURE_SINGLE_ARG(arg,NSNumber)                    
-	return [[[TiContactsPerson alloc] _initWithPageContext:[self executionContext] recordId:[arg intValue] module:self] autorelease];
+	ENSURE_SINGLE_ARG(arg, NSObject)
+	__block int idNum = [TiUtils intValue:arg];
+	__block BOOL validId = NO;	
+	dispatch_sync(dispatch_get_main_queue(),^{
+		ABRecordRef record = NULL;
+		record = ABAddressBookGetPersonWithRecordID(addressBook, idNum);
+		if (record != NULL)
+		{
+			validId = YES;
+		}
+	});
+	if (validId == YES)
+	{
+		return [[[TiContactsPerson alloc] _initWithPageContext:[self executionContext] recordId:idNum module:self] autorelease];
+	}
+	return NULL;
 }
 
 -(TiContactsGroup*)getGroupByID:(id)arg
 {
-	ENSURE_SINGLE_ARG(arg,NSNumber)
-	return [[[TiContactsGroup alloc] _initWithPageContext:[self executionContext] recordId:[arg intValue] module:self] autorelease];
+	ENSURE_SINGLE_ARG(arg, NSObject)
+	__block int idNum = [TiUtils intValue:arg];
+	__block BOOL validId = NO;	
+	dispatch_sync(dispatch_get_main_queue(),^{
+		ABRecordRef record = NULL;
+		record = ABAddressBookGetGroupWithRecordID(addressBook, idNum);
+		if (record != NULL) 
+		{
+			validId = YES;
+		}
+	});
+	if (validId == YES)
+	{	
+		return [[[TiContactsGroup alloc] _initWithPageContext:[self executionContext] recordId:idNum module:self] autorelease];
+	}
+	return NULL;
+	
 }
 
 -(NSArray*)getPeopleWithName:(id)arg
 {
-	ENSURE_SINGLE_ARG(arg,NSString)
+	ENSURE_SINGLE_ARG(arg, NSString)
 	
 	if (![NSThread isMainThread]) {
 		[self performSelectorOnMainThread:@selector(getPeopleWithName:) withObject:arg waitUntilDone:YES];
@@ -377,13 +406,17 @@ MAKE_SYSTEM_PROP(CONTACTS_SORT_LAST_NAME,kABPersonSortByLastName);
 		ABRecordID id_ = ABRecordGetRecordID(person);
 		TiContactsPerson* personObject = [[[TiContactsPerson alloc] _initWithPageContext:[self executionContext] recordId:id_ module:self] autorelease];
 		NSString* propertyName = nil;
-		id value = nil;
+		id value = [NSNull null];
 		id label = [NSNull null];
 		if (identifier == kABMultiValueInvalidIdentifier) { 
 			propertyName = [[[TiContactsPerson contactProperties] allKeysForObject:[NSNumber numberWithInt:property]] objectAtIndex:0];
+            
+            // Contacts is poorly-designed enough that we should worry about receiving NULL values for properties which are actually assigned.
 			CFTypeRef val = ABRecordCopyValue(person, property);
-			value = [[(id)val retain] autorelease]; // Force toll-free bridging & autorelease
-			CFRelease(val);
+            if (val != NULL) {
+                value = [[(id)val retain] autorelease]; // Force toll-free bridging & autorelease
+                CFRelease(val);
+            }
 		}
 		else {
 			propertyName = [[[TiContactsPerson multiValueProperties] allKeysForObject:[NSNumber numberWithInt:property]] objectAtIndex:0];
@@ -391,8 +424,10 @@ MAKE_SYSTEM_PROP(CONTACTS_SORT_LAST_NAME,kABPersonSortByLastName);
 			CFIndex index = ABMultiValueGetIndexForIdentifier(multival, identifier);
 
 			CFTypeRef val = ABMultiValueCopyValueAtIndex(multival, index);
-			value = [[(id)val retain] autorelease]; // Force toll-free bridging & autorelease
-			CFRelease(val);
+            if (val != NULL) {
+                value = [[(id)val retain] autorelease]; // Force toll-free bridging & autorelease
+                CFRelease(val);
+            }
 			
 			CFStringRef CFlabel = ABMultiValueCopyLabelAtIndex(multival, index);
             NSArray* labelKeys = [[TiContactsPerson multiValueLabels] allKeysForObject:(NSString*)CFlabel];
@@ -405,7 +440,12 @@ MAKE_SYSTEM_PROP(CONTACTS_SORT_LAST_NAME,kABPersonSortByLastName);
                 if (CFlabel != NULL) {
                     label = [NSString stringWithString:(NSString*)CFlabel];
                 }
+<<<<<<< HEAD
                 else {
+=======
+                // There may also be cases where we get a property from the system that we can't handle, because it's undocumented or not in the map.
+                else if (propertyName != nil) {
+>>>>>>> master
                     label = [NSString stringWithString:propertyName];
                 }
             }

@@ -42,6 +42,7 @@
 	{
 		TiDOMNodeListProxy *proxy = [[[TiDOMNodeListProxy alloc] _initWithPageContext:[self pageContext]] autorelease];
 		[proxy setNodes:nodes];
+		[proxy setDocument:[self document]];
 		return proxy;
 	}
 	if (error!=nil)
@@ -60,6 +61,7 @@
 	{
 		TiDOMNodeListProxy *proxy = [[[TiDOMNodeListProxy alloc] _initWithPageContext:[self pageContext]] autorelease];
 		[proxy setNodes:nodes];
+		[proxy setDocument:[self document]];
 		return proxy;
 	}
 	return nil;
@@ -159,7 +161,7 @@
 
 -(id)hasAttribute:(id)args
 {
-	return NUMBOOL([self hasAttribute:args]!=nil);
+	return NUMBOOL([self getAttribute:args] != nil);
 }
 
 -(id)hasAttributeNS:(id)args

@@ -26,19 +26,12 @@
 #import <MobileCoreServices/UTCoreTypes.h>
 #import <QuartzCore/QuartzCore.h>
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
 #import <UIKit/UIPopoverController.h>
-#endif
 // by default, we want to make the camera fullscreen and 
 // these transform values will scale it when we have our own overlay
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
-	#define CAMERA_TRANSFORM_Y 1.23
-	#define CAMERA_TRANSFORM_X 1
-#else
-	#define CAMERA_TRANSFORM_X 1.2
-	#define CAMERA_TRANSFORM_Y 1.12412
-#endif
+#define CAMERA_TRANSFORM_Y 1.23
+#define CAMERA_TRANSFORM_X 1
 
 enum  
 {
@@ -49,17 +42,53 @@ enum
 	MediaModuleErrorNoMusicPlayer
 };
 
+// Have to distinguish between filterable and nonfilterable properties
+static NSDictionary* TI_itemProperties;
+static NSDictionary* TI_filterableItemProperties;
+
 @implementation MediaModule
 
 #pragma mark Internal
 
++(NSDictionary*)filterableItemProperties
+{
+    if (TI_filterableItemProperties == nil) {
+        TI_filterableItemProperties = [[NSDictionary alloc] initWithObjectsAndKeys:MPMediaItemPropertyMediaType, @"mediaType", // Filterable
+                                                                                   MPMediaItemPropertyTitle, @"title", // Filterable
+                                                                                   MPMediaItemPropertyAlbumTitle, @"albumTitle", // Filterable
+                                                                                   MPMediaItemPropertyArtist, @"artist", // Filterable
+                                                                                   MPMediaItemPropertyAlbumArtist, @"albumArtist", //Filterable
+                                                                                   MPMediaItemPropertyGenre, @"genre", // Filterable
+                                                                                   MPMediaItemPropertyComposer, @"composer", // Filterable
+                                                                                   MPMediaItemPropertyIsCompilation, @"isCompilation", // Filterable
+                                                                                   nil];
+    }
+    return TI_filterableItemProperties;
+}
+
++(NSDictionary*)itemProperties
+{
+	if (TI_itemProperties == nil) {
+		TI_itemProperties = [[NSDictionary alloc] initWithObjectsAndKeys:MPMediaItemPropertyPlaybackDuration, @"playbackDuration",
+                                                                         MPMediaItemPropertyAlbumTrackNumber, @"albumTrackNumber",
+                                                                         MPMediaItemPropertyAlbumTrackCount, @"albumTrackCount",
+                                                                         MPMediaItemPropertyDiscNumber, @"discNumber",
+                                                                         MPMediaItemPropertyDiscCount, @"discCount",
+                                                                         MPMediaItemPropertyLyrics, @"lyrics",
+                                                                         MPMediaItemPropertyPodcastTitle, @"podcastTitle",
+                                                                         MPMediaItemPropertyPlayCount, @"playCount",
+                                                                         MPMediaItemPropertySkipCount, @"skipCount",
+                                                                         MPMediaItemPropertyRating, @"rating",
+                                                                         nil	];		
+	}
+	return TI_itemProperties;
+}
+
 -(void)destroyPickerCallbacks
 {
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
 	RELEASE_TO_NIL(editorSuccessCallback);
 	RELEASE_TO_NIL(editorErrorCallback);
 	RELEASE_TO_NIL(editorCancelCallback);
-#endif
 	RELEASE_TO_NIL(pickerSuccessCallback);
 	RELEASE_TO_NIL(pickerErrorCallback);
 	RELEASE_TO_NIL(pickerCancelCallback);
@@ -67,15 +96,11 @@ enum
 
 -(void)destroyPicker
 {
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
 	RELEASE_TO_NIL(popover);
-#endif
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
 	RELEASE_TO_NIL(editor);
 	RELEASE_TO_NIL(editorSuccessCallback);
 	RELEASE_TO_NIL(editorErrorCallback);
 	RELEASE_TO_NIL(editorCancelCallback);
-#endif
 	RELEASE_TO_NIL(musicPicker);
 	RELEASE_TO_NIL(picker);
 	RELEASE_TO_NIL(pickerSuccessCallback);
@@ -183,7 +208,6 @@ enum
 		[[tiApp controller] manuallyRotateToOrientation:UIInterfaceOrientationPortrait];
 		[tiApp showModalController:picker_ animated:animatedPicker];
 	}
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
 	else
 	{
 		RELEASE_TO_NIL(popover);
@@ -208,12 +232,10 @@ enum
 		[popover setDelegate:self];
 		[popover presentPopoverFromRect:poFrame inView:poView permittedArrowDirections:arrow animated:animatedPicker];
 	}
-#endif
 }
 
 -(void)closeModalPicker:(UIViewController*)picker_
 {
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
 	if (popover)
 	{
 		[(UIPopoverController*)popover dismissPopoverAnimated:animatedPicker];
@@ -221,11 +243,8 @@ enum
 	}
 	else
 	{
-#endif
 		[[TiApp app] hideModalController:picker_ animated:animatedPicker];
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
 	}
-#endif	
 }
 
 - (void)popoverControllerDidDismissPopover:(UIPopoverController *)popoverController
@@ -235,6 +254,7 @@ enum
 	}
 	
 	RELEASE_TO_NIL(popover);
+	[self destroyPicker];
 }
 
 -(void)showPicker:(NSDictionary*)args isCamera:(BOOL)isCamera
@@ -429,16 +449,7 @@ MAKE_SYSTEM_PROP(NO_MUSIC_PLAYER,MediaModuleErrorNoMusicPlayer);
 // >=3.2 dependent value; this one isn't deprecated
 -(NSNumber*)VIDEO_CONTROL_DEFAULT
 {
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
-	if ([TiUtils isiPhoneOS3_2OrGreater]) {
-		return NUMINT(MPMovieControlStyleDefault);
-	}
-	else {
-#endif
-		return NUMINT(MPMovieControlModeDefault);
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
-	}
-#endif
+	return NUMINT(MPMovieControlStyleDefault);
 }
 
 // these have been deprecated in 3.2 but we need them for older devices
@@ -457,19 +468,14 @@ MAKE_SYSTEM_PROP(QUALITY_HIGH,UIImagePickerControllerQualityTypeHigh);
 MAKE_SYSTEM_PROP(QUALITY_MEDIUM,UIImagePickerControllerQualityTypeMedium);
 MAKE_SYSTEM_PROP(QUALITY_LOW,UIImagePickerControllerQualityTypeLow);
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
 MAKE_SYSTEM_PROP(QUALITY_640x480,UIImagePickerControllerQualityType640x480);
-#endif
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
-MAKE_SYSTEM_PROP(CAMERA_FRONT,UIImagePickerControllerCameraDeviceRear);
-MAKE_SYSTEM_PROP(CAMERA_REAR,UIImagePickerControllerCameraDeviceFront);
+MAKE_SYSTEM_PROP(CAMERA_FRONT,UIImagePickerControllerCameraDeviceFront);
+MAKE_SYSTEM_PROP(CAMERA_REAR,UIImagePickerControllerCameraDeviceRear);
 
 MAKE_SYSTEM_PROP(CAMERA_FLASH_OFF,UIImagePickerControllerCameraFlashModeOff);
 MAKE_SYSTEM_PROP(CAMERA_FLASH_AUTO,UIImagePickerControllerCameraFlashModeAuto);
 MAKE_SYSTEM_PROP(CAMERA_FLASH_ON,UIImagePickerControllerCameraFlashModeOn);
-
-#endif
 
 MAKE_SYSTEM_PROP(AUDIO_HEADPHONES,TiMediaAudioSessionInputHeadphones);
 MAKE_SYSTEM_PROP(AUDIO_HEADSET_INOUT,TiMediaAudioSessionInputHeadsetInOut);
@@ -512,6 +518,15 @@ MAKE_SYSTEM_PROP(MUSIC_MEDIA_TYPE_AUDIOBOOK, MPMediaTypeAudioBook);
 MAKE_SYSTEM_PROP(MUSIC_MEDIA_TYPE_ANY_AUDIO, MPMediaTypeAnyAudio);
 MAKE_SYSTEM_PROP(MUSIC_MEDIA_TYPE_ALL, MPMediaTypeAny);
 
+MAKE_SYSTEM_PROP(MUSIC_MEDIA_GROUP_TITLE, MPMediaGroupingTitle);
+MAKE_SYSTEM_PROP(MUSIC_MEDIA_GROUP_ALBUM, MPMediaGroupingAlbum);
+MAKE_SYSTEM_PROP(MUSIC_MEDIA_GROUP_ARTIST, MPMediaGroupingArtist);
+MAKE_SYSTEM_PROP(MUSIC_MEDIA_GROUP_ALBUM_ARTIST, MPMediaGroupingAlbumArtist);
+MAKE_SYSTEM_PROP(MUSIC_MEDIA_GROUP_COMPOSER, MPMediaGroupingComposer);
+MAKE_SYSTEM_PROP(MUSIC_MEDIA_GROUP_GENRE, MPMediaGroupingGenre);
+MAKE_SYSTEM_PROP(MUSIC_MEDIA_GROUP_PLAYLIST, MPMediaGroupingPlaylist);
+MAKE_SYSTEM_PROP(MUSIC_MEDIA_GROUP_PODCAST_TITLE, MPMediaGroupingPodcastTitle);
+
 MAKE_SYSTEM_PROP(MUSIC_PLAYER_STATE_STOPPED, MPMusicPlaybackStateStopped);
 MAKE_SYSTEM_PROP(MUSIC_PLAYER_STATE_PLAYING, MPMusicPlaybackStatePlaying);
 MAKE_SYSTEM_PROP(MUSIC_PLAYER_STATE_PAUSED, MPMusicPlaybackStatePaused);
@@ -529,7 +544,6 @@ MAKE_SYSTEM_PROP(MUSIC_PLAYER_SHUFFLE_NONE, MPMusicShuffleModeOff);
 MAKE_SYSTEM_PROP(MUSIC_PLAYER_SHUFFLE_SONGS, MPMusicShuffleModeSongs);
 MAKE_SYSTEM_PROP(MUSIC_PLAYER_SHUFFLE_ALBUMS, MPMusicShuffleModeAlbums);
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
 // these are new in 3.2
 MAKE_SYSTEM_PROP(VIDEO_CONTROL_NONE,MPMovieControlStyleNone);
 MAKE_SYSTEM_PROP(VIDEO_CONTROL_EMBEDDED,MPMovieControlStyleEmbedded);
@@ -564,10 +578,6 @@ MAKE_SYSTEM_PROP(VIDEO_TIME_OPTION_EXACT,MPMovieTimeOptionExact);
 MAKE_SYSTEM_PROP(VIDEO_FINISH_REASON_PLAYBACK_ENDED,MPMovieFinishReasonPlaybackEnded);
 MAKE_SYSTEM_PROP(VIDEO_FINISH_REASON_PLAYBACK_ERROR,MPMovieFinishReasonPlaybackError);
 MAKE_SYSTEM_PROP(VIDEO_FINISH_REASON_USER_EXITED,MPMovieFinishReasonUserExited);
-
-				 
-#endif
-
 
 -(CGFloat)volume
 {
@@ -607,17 +617,8 @@ MAKE_SYSTEM_PROP(VIDEO_FINISH_REASON_USER_EXITED,MPMovieFinishReasonUserExited);
 	return albumSourceTypes==nil ? [NSArray arrayWithObject:(NSString*)kUTTypeImage] : albumSourceTypes;
 }
 
-#define ONLY_IN_IOS4_OR_GREATER(method,retval) \
-if (![TiUtils isIOS4OrGreater]) { \
-	NSLog(@"[WARN] " #method " only available in iOS 4 and later");\
-	return retval;\
-}
-
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
 -(NSArray*)availableCameras
-{
-	ONLY_IN_IOS4_OR_GREATER(availableCameras, nil)
-	
+{	
 	NSMutableArray* types = [NSMutableArray arrayWithCapacity:2];
 	if ([UIImagePickerController isCameraDeviceAvailable:UIImagePickerControllerCameraDeviceFront])
 	{
@@ -631,9 +632,7 @@ if (![TiUtils isIOS4OrGreater]) { \
 }
 
 -(id)camera 
-{
-	ONLY_IN_IOS4_OR_GREATER(camera,nil)
-	
+{	
 	if (picker!=nil)
 	{
 		return NUMINT([picker cameraDevice]);
@@ -642,9 +641,7 @@ if (![TiUtils isIOS4OrGreater]) { \
 }
 
 -(id)cameraFlashMode
-{
-	ONLY_IN_IOS4_OR_GREATER(cameraFlashMode,nil)
-	
+{	
 	if (picker!=nil)
 	{
 		return NUMINT([picker cameraFlashMode]);
@@ -654,9 +651,7 @@ if (![TiUtils isIOS4OrGreater]) { \
 
 -(void)setCameraFlashMode:(id)args
 {
-	// Return nothing
-	ONLY_IN_IOS4_OR_GREATER(setCameraFlashMode, )
-	
+	// Return nothing	
 	ENSURE_UI_THREAD(setCameraFlashMode,args);
 	ENSURE_SINGLE_ARG(args,NSNumber);
 	
@@ -668,9 +663,7 @@ if (![TiUtils isIOS4OrGreater]) { \
 
 -(void)switchCamera:(id)args
 {
-	// Return nothing
-	ONLY_IN_IOS4_OR_GREATER(switchCamera, )
-	
+	// Return nothing	
 	ENSURE_UI_THREAD(switchCamera,args);
 	ENSURE_SINGLE_ARG(args,NSNumber);
 	
@@ -684,9 +677,7 @@ if (![TiUtils isIOS4OrGreater]) { \
 
 -(void)startVideoCapture:(id)args
 { 
-	// Return nothing
-	ONLY_IN_IOS4_OR_GREATER(startVideoCapture, )
-	
+	// Return nothing	
 	ENSURE_UI_THREAD(startVideoCapture,args);
 	// must have a picker, doh
 	if (picker==nil)
@@ -697,9 +688,7 @@ if (![TiUtils isIOS4OrGreater]) { \
 }
 
 -(void)stopVideoCapture:(id)args
-{
-	ONLY_IN_IOS4_OR_GREATER(stopVideoCapture, )
-	
+{	
 	ENSURE_UI_THREAD(stopVideoCapture,args);
 	// must have a picker, doh
 	if (picker!=nil)
@@ -709,9 +698,7 @@ if (![TiUtils isIOS4OrGreater]) { \
 }
 
 -(void)startVideoEditing:(id)args
-{
-	ONLY_IN_IOS4_OR_GREATER(startVideoEditing, )
-	
+{	
 	ENSURE_UI_THREAD(startVideoEditing,args);
 	ENSURE_SINGLE_ARG_OR_NIL(args,NSDictionary);
 
@@ -768,9 +755,7 @@ if (![TiUtils isIOS4OrGreater]) { \
 }
 
 -(void)stopVideoEditing:(id)args
-{
-	ONLY_IN_IOS4_OR_GREATER(stopVideoEditing, )
-	
+{	
 	ENSURE_UI_THREAD(stopVideoEditing,args);
 	ENSURE_SINGLE_ARG_OR_NIL(args,NSDictionary);
 	
@@ -781,8 +766,6 @@ if (![TiUtils isIOS4OrGreater]) { \
 		RELEASE_TO_NIL(editor);
 	}
 }
-
-#endif
 
 -(id)isMediaTypeSupported:(id)args
 {
@@ -841,14 +824,52 @@ if (![TiUtils isIOS4OrGreater]) { \
 {
 	ENSURE_UI_THREAD(takeScreenshot,arg);
 	ENSURE_SINGLE_ARG(arg,KrollCallback);
-	
-	// we take the shot of the whole window, not just the active view
-	UIWindow *screenWindow = [[UIApplication sharedApplication] keyWindow];
-	UIGraphicsBeginImageContext(screenWindow.bounds.size);
-	[screenWindow.layer renderInContext:UIGraphicsGetCurrentContext()];
-	UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
-	UIGraphicsEndImageContext();
-	
+
+    // Create a graphics context with the target size
+    // On iOS 4 and later, use UIGraphicsBeginImageContextWithOptions to take the scale into consideration
+    // On iOS prior to 4, fall back to use UIGraphicsBeginImageContext
+
+    float systemVersion = [[[UIDevice currentDevice] systemVersion] floatValue];
+
+ 	CGSize imageSize = [[UIScreen mainScreen] bounds].size;
+
+ 	if (systemVersion >= 4.0f)
+		UIGraphicsBeginImageContextWithOptions(imageSize, NO, 0);
+	else
+		UIGraphicsBeginImageContext(imageSize);
+
+	CGContextRef context = UIGraphicsGetCurrentContext();
+
+    // Iterate over every window from back to front
+    for (UIWindow *window in [[UIApplication sharedApplication] windows])
+    {
+        if (![window respondsToSelector:@selector(screen)] || [window screen] == [UIScreen mainScreen])
+        {
+            // -renderInContext: renders in the coordinate space of the layer,
+            // so we must first apply the layer's geometry to the graphics context
+            CGContextSaveGState(context);
+            // Center the context around the window's anchor point
+            CGContextTranslateCTM(context, [window center].x, [window center].y);
+            // Apply the window's transform about the anchor point
+            CGContextConcatCTM(context, [window transform]);
+            // Offset by the portion of the bounds left of and above the anchor point
+            CGContextTranslateCTM(context,
+                                  -[window bounds].size.width * [[window layer] anchorPoint].x,
+                                  -[window bounds].size.height * [[window layer] anchorPoint].y);
+
+            // Render the layer hierarchy to the current context
+            [[window layer] renderInContext:context];
+
+            // Restore the context
+            CGContextRestoreGState(context);
+        }
+    }
+
+    // Retrieve the screenshot image
+    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+
+    UIGraphicsEndImageContext();
+
 	TiBlob *blob = [[[TiBlob alloc] initWithImage:image] autorelease];
 	NSDictionary *event = [NSDictionary dictionaryWithObject:blob forKey:@"media"];
 	[self _fireEventToListener:@"screenshot" withObject:event listener:arg thisObject:nil];
@@ -926,8 +947,7 @@ if (![TiUtils isIOS4OrGreater]) { \
 
 -(void)vibrate:(id)args
 {
-	ENSURE_UI_THREAD(beep,args);
-	AudioServicesPlayAlertSound(kSystemSoundID_Vibrate);
+	[self beep:args];
 }
 
 -(void)takePicture:(id)args
@@ -1030,6 +1050,39 @@ if (![TiUtils isIOS4OrGreater]) { \
 		[[TiApp app] hideModalController:musicPicker animated:animatedPicker];
 		[self destroyPicker];
 	}
+}
+
+-(NSArray*)queryMusicLibrary:(id)arg
+{
+    ENSURE_SINGLE_ARG(arg, NSDictionary);
+    MPMediaGrouping grouping = [TiUtils intValue:[arg valueForKey:@"grouping"] def:MPMediaGroupingTitle];
+    
+    NSMutableSet* predicates = [NSMutableSet set];
+    for (NSString* prop in [MediaModule filterableItemProperties]) {
+        id value = [arg valueForKey:prop];
+        if (value != nil) {
+            if ([value isKindOfClass:[NSDictionary class]]) {
+                id propVal = [value objectForKey:@"value"];
+                bool exact = [TiUtils boolValue:[value objectForKey:@"exact"] def:YES];
+                MPMediaPredicateComparison comparison = (exact) ? MPMediaPredicateComparisonEqualTo : MPMediaPredicateComparisonContains;
+                [predicates addObject:[MPMediaPropertyPredicate predicateWithValue:propVal 
+                                                                       forProperty:[[MediaModule filterableItemProperties] valueForKey:prop]
+                                                                    comparisonType:comparison]];
+            }
+            else {
+                [predicates addObject:[MPMediaPropertyPredicate predicateWithValue:value
+                                                                       forProperty:[[MediaModule filterableItemProperties] valueForKey:prop]]];
+            }
+        }
+    }
+    
+    MPMediaQuery* query = [[[MPMediaQuery alloc] initWithFilterPredicates:predicates] autorelease];
+    NSMutableArray* result = [NSMutableArray arrayWithCapacity:[[query items] count]];
+    for (MPMediaItem* item in [query items]) {
+        TiMediaItem* newItem = [[[TiMediaItem alloc] _initWithPageContext:[self pageContext] item:item] autorelease];
+        [result addObject:newItem];
+    }
+    return result;
 }
 
 -(TiMediaMusicPlayer*)systemMusicPlayer
@@ -1297,9 +1350,6 @@ if (![TiUtils isIOS4OrGreater]) { \
 	}
 }
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
-// Callbacks for iOS 4.0; will never be called in earlier iOSes so don't need the +[TiUtils isIOS4OrGreater] guard.
-
 - (void)videoEditorController:(UIVideoEditorController *)editor_ didSaveEditedVideoToPath:(NSString *)editedVideoPath
 {
 	id listener = [[editorSuccessCallback retain] autorelease];
@@ -1340,9 +1390,6 @@ if (![TiUtils isIOS4OrGreater]) { \
 		[NSThread detachNewThreadSelector:@selector(dispatchCallback:) toTarget:self withObject:[NSArray arrayWithObjects:@"error",event,listener,nil]];
 	}
 }
-
-#endif
-
 
 @end
 

@@ -13,8 +13,6 @@
 #import "TiAppiOSBackgroundServiceProxy.h"
 #import "TiAppiOSLocalNotificationProxy.h"
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
-
 #define NOTNULL(v) ((v==nil) ? (id)[NSNull null] : v)
 
 @implementation TiAppiOSProxy
@@ -199,7 +197,7 @@
 		[event setObject:NOTNULL([notification alertLaunchImage]) forKey:@"alertLaunchImage"];
 		[event setObject:NOTNULL([notification soundName]) forKey:@"sound"];
 		[event setObject:NUMINT([notification applicationIconBadgeNumber]) forKey:@"badge"];
-		[event setObject:[notification userInfo] forKey:@"userInfo"];
+		[event setObject:NOTNULL([notification userInfo]) forKey:@"userInfo"];
 	}
 	[self fireEvent:@"notification" withObject:event];
 }
@@ -207,5 +205,4 @@
 
 @end
 
-#endif
 #endif

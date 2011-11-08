@@ -77,7 +77,7 @@
 	database = [[PLSqliteDatabase alloc] initWithPath:path];
 	if (![database open])
 	{
-		[self throwException:@"couldn't open database" subreason:nil location:CODELOCATION];
+		[self throwException:@"couldn't open database" subreason:name_ location:CODELOCATION];
 	}
 }
 
@@ -150,7 +150,7 @@
 	{
 		[result next]; // we need to do this to make sure lastInsertRowId and rowsAffected work
 		[result close];
-		return nil;
+		return [NSNull null];
 	}
 	
 	if (statements==nil)

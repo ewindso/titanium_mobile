@@ -1,9 +1,10 @@
 /**
  * Appcelerator Titanium Mobile
- * Copyright (c) 2009-2010 by Appcelerator, Inc. All Rights Reserved.
+ * Copyright (c) 2009-2011 by Appcelerator, Inc. All Rights Reserved.
  * Licensed under the terms of the Apache Public License
  * Please see the LICENSE included with this distribution for details.
  */
+
 package org.appcelerator.titanium.proxy;
 
 import java.lang.ref.WeakReference;
@@ -16,13 +17,19 @@ import org.appcelerator.titanium.TiBaseActivity;
 import org.appcelerator.titanium.TiC;
 import org.appcelerator.titanium.TiContext;
 import org.appcelerator.titanium.util.AsyncResult;
+import org.appcelerator.titanium.util.Log;
 import org.appcelerator.titanium.util.TiConfig;
+import org.appcelerator.titanium.util.TiConvert;
+import org.appcelerator.titanium.util.TiOrientationHelper;
 import org.appcelerator.titanium.util.TiPropertyResolver;
 import org.appcelerator.titanium.util.TiUIHelper;
 import org.appcelerator.titanium.view.TiAnimation;
 import org.appcelerator.titanium.view.TiUIView;
 
 import android.app.Activity;
+import android.content.pm.ActivityInfo;
+import android.graphics.PixelFormat;
+import android.os.Build;
 import android.os.Message;
 
 @Kroll.proxy(propertyAccessors={"title"})
@@ -47,8 +54,7 @@ public abstract class TiWindowProxy extends TiViewProxy
 	protected boolean fullscreen;
 	protected boolean modal;
 	protected boolean restoreFullscreen;
-	protected int[] orientationModes = new int[0];
-	
+	protected int[] orientationModes = null;
 	protected TiViewProxy tabGroup;
 	protected TiViewProxy tab;
 	protected boolean inTab;
@@ -201,18 +207,122 @@ public abstract class TiWindowProxy extends TiViewProxy
 
 	public KrollDict handleToImage()
 	{
-		return TiUIHelper.viewToImage(getTiContext(), properties, getTiContext().getActivity().getWindow()
-			.getDecorView());
+		return TiUIHelper.viewToImage(getTiContext(), properties, getTiContext().getActivity().getWindow().getDecorView());
+	}
+
+	// only exists to expose a way for the activity to update the orientation based on
+	// the modes already set on the window
+	public void updateOrientation()
+	{
+		setOrientationModes (orientationModes);
 	}
 
 	@Kroll.method @Kroll.setProperty
-	public void setOrientationModes(int[] modes)
+	public void setOrientationModes (int[] modes)
 	{
+		int activityOrientationMode = -1;
+		boolean hasPortrait = false;
+		boolean hasPortraitReverse = false;
+		boolean hasLandscape = false;
+		boolean hasLandscapeReverse = false;
+
+		// update orientation modes that get exposed
 		orientationModes = modes;
-		Activity activity = handleGetActivity();
-		if (activity instanceof TiBaseActivity) {
-			TiBaseActivity tiActivity = (TiBaseActivity) activity;
-			tiActivity.updateOrientation();
+
+		if (modes != null)
+		{
+			// look through orientation modes and determine what has been set
+			for (int i = 0; i < orientationModes.length; i++)
+			{
+				if (orientationModes [i] == TiOrientationHelper.ORIENTATION_PORTRAIT)
+				{
+					hasPortrait = true;
+				}
+				else if (orientationModes [i] == TiOrientationHelper.ORIENTATION_PORTRAIT_REVERSE)
+				{
+					hasPortraitReverse = true;
+				}
+				else if (orientationModes [i] == TiOrientationHelper.ORIENTATION_LANDSCAPE)
+				{
+					hasLandscape = true;
+				}
+				else if (orientationModes [i] == TiOrientationHelper.ORIENTATION_LANDSCAPE_REVERSE)
+				{
+					hasLandscapeReverse = true;
+				}
+			}
+
+			// determine if we have a valid activity orientation mode based on provided modes list
+			if (orientationModes.length == 0)
+			{
+				activityOrientationMode = ActivityInfo.SCREEN_ORIENTATION_SENSOR;
+			}
+			else if ((hasPortrait || hasPortraitReverse) && (hasLandscape || hasLandscapeReverse))
+			{
+				activityOrientationMode = ActivityInfo.SCREEN_ORIENTATION_SENSOR;
+			}
+			else if (hasPortrait && hasPortraitReverse)
+			{
+				//activityOrientationMode = ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT;
+
+				// unable to use constant until sdk lvl 9, use constant value instead
+				// if sdk level is less than 9, set as regular portrait
+				if (Build.VERSION.SDK_INT >= 9)
+				{
+					activityOrientationMode = 7;
+				}
+				else
+				{
+					activityOrientationMode = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
+				}
+			}
+			else if (hasLandscape && hasLandscapeReverse)
+			{
+				//activityOrientationMode = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE;
+
+				// unable to use constant until sdk lvl 9, use constant value instead
+				// if sdk level is less than 9, set as regular landscape
+				if (Build.VERSION.SDK_INT >= 9)
+				{
+					activityOrientationMode = 6;
+				}
+				else
+				{
+					activityOrientationMode = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE;
+				}
+			}
+			else if (hasPortrait)
+			{
+				activityOrientationMode = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
+			}
+			else if (hasLandscape)
+			{
+				activityOrientationMode = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE;
+			}
+
+			Activity activity = getTiContext().getActivity();
+			if (activity != null)
+			{
+				if (activityOrientationMode != -1)
+				{
+					activity.setRequestedOrientation(activityOrientationMode);
+				}
+				else
+				{
+					activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+				}
+			}
+		}
+		else
+		{
+			Activity activity = getTiContext().getActivity();
+			if (activity != null)
+			{
+				if (activity instanceof TiBaseActivity)
+				{
+					activity.setRequestedOrientation(((TiBaseActivity)activity).getOriginalOrientationMode());
+				}
+			}
 		}
 	}
 
@@ -220,21 +330,6 @@ public abstract class TiWindowProxy extends TiViewProxy
 	public int[] getOrientationModes()
 	{
 		return orientationModes;
-	}
-
-	// orientation must be Titanium orientation value
-	public boolean isOrientationMode(int orientation)
-	{
-		if (orientationModes.length > 0) {
-			for (int mode : orientationModes) {
-				if (mode == orientation) {
-					return true;
-				}
-			}
-			return false;
-		} else {
-			return true;
-		}
 	}
 
 	@Kroll.method @Kroll.getProperty
@@ -260,14 +355,14 @@ public abstract class TiWindowProxy extends TiViewProxy
 		}
 		return activityProxy;
 	}
-
+		
 	protected abstract void handleOpen(KrollDict options);
 	protected abstract void handleClose(KrollDict options);
 	protected abstract Activity handleGetActivity();
 
 	/**
 	 * Sub-classes will need to call handlePostOpen after their window is visible
-	 * so any pending dialogs can succesfully show after the window is opened
+	 * so any pending dialogs can successfully show after the window is opened
 	 */
 	protected void handlePostOpen()
 	{

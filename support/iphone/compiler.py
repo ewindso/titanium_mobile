@@ -4,16 +4,14 @@
 # Project Compiler
 #
 
-import os, sys, re, shutil, time, base64, run, sgmllib, codecs
+import os, sys, re, shutil, time, run, sgmllib, codecs, tempfile
 
 template_dir = os.path.abspath(os.path.dirname(sys._getframe(0).f_code.co_filename))
 sys.path.append(os.path.join(template_dir,'../'))
-sys.path.append(os.path.join(template_dir,'../module'))
 
 from tiapp import *
 import jspacker 
 from csspacker import CSSPacker
-from module import ModuleDetector
 
 ignoreFiles = ['.gitignore', '.cvsignore', '.DS_Store'];
 ignoreDirs = ['.git','.svn','_svn','CVS','android','iphone'];
@@ -35,9 +33,7 @@ INTERFACE_HEADER= """
 
 IMPL_HEADER= """#import "ApplicationRouting.h"
 
-extern NSData * decode64 (NSData * thedata); 
-extern NSData * dataWithHexString (NSString * hexString);
-extern NSData * decodeDataWithKey (NSData * thedata, NSString * key);
+extern NSData* filterData(NSString* thedata);
 
 @implementation ApplicationRouting
 
@@ -147,23 +143,30 @@ def parse_xcconfig(xcconfig, moduleId, variables):
 	
 class Compiler(object):
 	
-	def __init__(self,project_dir,appid,name,deploytype,xcode,devicefamily,iphone_version,silent=False):
+	def __init__(self,project_dir,appid,name,deploytype,xcode,devicefamily,iphone_version,silent=False,sdk=None):
+		self.deploytype = deploytype
 		self.project_dir = project_dir
 		self.project_name = name
 		self.appid = appid
-		self.iphone_dir = os.path.join(project_dir,'build','iphone')
+		if deploytype != 'export-build':
+			self.iphone_dir = os.path.join(project_dir,'build','iphone')
+		else:
+			self.iphone_dir = project_dir
 		self.classes_dir = os.path.join(self.iphone_dir,'Classes')
 		self.modules = []
 		self.modules_metadata = []
 		
 		# for now, these are required
-		self.defines = ['USE_TI_ANALYTICS','USE_TI_NETWORK','USE_TI_PLATFORM','USE_TI_UI']
+		self.defines = ['USE_TI_ANALYTICS','USE_TI_NETWORK','USE_TI_PLATFORM','USE_TI_UI', 'USE_TI_API']
 
 		tiapp_xml = os.path.join(project_dir,'tiapp.xml')
 		ti = TiAppXML(tiapp_xml)
-		sdk_version = os.path.basename(os.path.abspath(os.path.join(template_dir,'../')))
-		detector = ModuleDetector(project_dir)
-		missing_modules, modules = detector.find_app_modules(ti, 'iphone')
+		if sdk is None:
+			sdk_version = os.path.basename(os.path.abspath(os.path.join(template_dir,'../')))
+		else:
+			sdk_version = sdk
+		
+
 
 		if xcode:
 			app_name = os.environ['FULL_PRODUCT_NAME']
@@ -175,37 +178,35 @@ class Compiler(object):
 			app_name = name+'.app'
 			app_folder_name = '%s-iphoneos' % target
 			app_dir = os.path.abspath(os.path.join(self.iphone_dir,'build',app_folder_name,app_name))
-		
-		main_template_file = os.path.join(template_dir,'main.m')
-		main_template = codecs.open(main_template_file, encoding='utf-8').read()
-		main_template = main_template.replace('__PROJECT_NAME__',name)
-		main_template = main_template.replace('__PROJECT_ID__',appid)
-		main_template = main_template.replace('__DEPLOYTYPE__',deploytype)
-		main_template = main_template.replace('__APP_ID__',appid)
-		main_template = main_template.replace('__APP_ANALYTICS__',ti.properties['analytics'])
-		main_template = main_template.replace('__APP_PUBLISHER__',ti.properties['publisher'])
-		main_template = main_template.replace('__APP_URL__',ti.properties['url'])
-		main_template = main_template.replace('__APP_NAME__',ti.properties['name'])
-		main_template = main_template.replace('__APP_VERSION__',ti.properties['version'])
-		main_template = main_template.replace('__APP_DESCRIPTION__',ti.properties['description'])
-		main_template = main_template.replace('__APP_COPYRIGHT__',ti.properties['copyright'])
-		main_template = main_template.replace('__APP_GUID__',ti.properties['guid'])
-		if deploytype=='development':
-			main_template = main_template.replace('__APP_RESOURCE_DIR__',os.path.abspath(os.path.join(project_dir,'Resources')))
-		else:
-			main_template = main_template.replace('__APP_RESOURCE_DIR__','')
 
 		if not silent:
 			print "[INFO] Titanium SDK version: %s" % sdk_version
 			print "[INFO] iPhone Device family: %s" % devicefamily
 			print "[INFO] iPhone SDK version: %s" % iphone_version
-		
-		main_template_out = os.path.join(self.iphone_dir,'main.m')	
-		main_file = codecs.open(main_template_out,'w+',encoding='utf-8')
-		main_file_contents = main_file.read()
-		if main_file_contents!=main_template:
-			main_file.write(main_template)
-			main_file.close()
+	
+		if deploytype != 'export-build':
+			main_template_file = os.path.join(template_dir,'main.m')
+			main_template = codecs.open(main_template_file, encoding='utf-8').read()
+			main_template = main_template.replace('__PROJECT_NAME__',name)
+			main_template = main_template.replace('__PROJECT_ID__',appid)
+			main_template = main_template.replace('__DEPLOYTYPE__',deploytype)
+			main_template = main_template.replace('__APP_ID__',appid)
+			main_template = main_template.replace('__APP_ANALYTICS__',ti.properties['analytics'])
+			main_template = main_template.replace('__APP_PUBLISHER__',ti.properties['publisher'])
+			main_template = main_template.replace('__APP_URL__',ti.properties['url'])
+			main_template = main_template.replace('__APP_NAME__',ti.properties['name'])
+			main_template = main_template.replace('__APP_VERSION__',ti.properties['version'])
+			main_template = main_template.replace('__APP_DESCRIPTION__',ti.properties['description'])
+			main_template = main_template.replace('__APP_COPYRIGHT__',ti.properties['copyright'])
+			main_template = main_template.replace('__APP_GUID__',ti.properties['guid'])
+			main_template = main_template.replace('__APP_RESOURCE_DIR__','')
+	
+			main_template_out = os.path.join(self.iphone_dir,'main.m')	
+			main_file = codecs.open(main_template_out,'w+',encoding='utf-8')
+			main_file_contents = main_file.read()
+			if main_file_contents!=main_template:
+				main_file.write(main_template)
+				main_file.close()
 		
 		if deploytype == 'production':
 			version = ti.properties['version']
@@ -217,18 +218,34 @@ class Compiler(object):
 		iphone_resources_dir = os.path.join(resources_dir,'iphone')
 
 		# copy in any resources in our module like icons
-		project_module_dir = os.path.join(project_dir,'modules','iphone')
-		if os.path.exists(project_module_dir):
-			self.copy_resources([project_module_dir],app_dir,False)
-		
-		# we have to copy these even in simulator given the path difference
-		if os.path.exists(app_dir):
-			self.copy_resources([iphone_resources_dir],app_dir,False)
-
-		# generate the includes for all compiled modules
-		xcconfig_c = "// this is a generated file - DO NOT EDIT\n\n"
+		# NOTE: This means that any JS-only modules in the local project
+		# are hashed up and dumped into the export.
 		has_modules = False
+		missing_modules, modules, module_js = ([], [], [])
+		module_js_dir = os.path.join(project_dir,'modules')
+		if os.path.exists(module_js_dir):
+			for file in os.listdir(module_js_dir):
+				if file.endswith('.js'):
+					module_js.append({'from':os.path.join(module_js_dir,file),'to':os.path.join(app_dir,file),'path':'modules/'+file})
+		
+		if deploytype != 'export-build':
+			# Have to load the module detection here, in order to
+			# prevent distributing even MORE stuff in export/transport
+			sys.path.append(os.path.join(template_dir,'../module'))
+			from module import ModuleDetector
+			
+			detector = ModuleDetector(project_dir)
+			missing_modules, modules = detector.find_app_modules(ti, 'iphone')
+			
+			project_module_dir = os.path.join(project_dir,'modules','iphone')
+			if os.path.exists(project_module_dir):
+				self.copy_resources([project_module_dir],app_dir,False)
+		
+			# we have to copy these even in simulator given the path difference
+			if os.path.exists(app_dir):
+				self.copy_resources([iphone_resources_dir],app_dir,False)
 
+<<<<<<< HEAD
 		if len(modules) > 0:
 			mods = open(os.path.join(self.classes_dir,'ApplicationMods.m'),'w+')
 			variables = {}
@@ -277,19 +294,73 @@ class Compiler(object):
 				xcconfig.close()
 
 		if deploytype=='simulator':
+=======
+			# generate the includes for all compiled modules
+			xcconfig_c = "// this is a generated file - DO NOT EDIT\n\n"
+	
+			if len(modules) > 0:
+				mods = open(os.path.join(self.classes_dir,'ApplicationMods.m'),'w+')
+				variables = {}
+				mods.write(MODULE_IMPL_HEADER)
+				for module in modules:
+					module_id = module.manifest.moduleid.lower()
+					module_name = module.manifest.name.lower()
+					module_version = module.manifest.version
+					module_guid = ''
+					module_licensekey = ''
+					if module.manifest.has_property('guid'):
+						module_guid = module.manifest.guid
+					if module.manifest.has_property('licensekey'):
+						module_licensekey = module.manifest.licensekey
+					self.modules_metadata.append({'guid':module_guid,'name':module_name,'id':module_id,'dir':module.path,'version':module_version,'licensekey':module_licensekey})
+					xcfile = module.get_resource('module.xcconfig')
+					if os.path.exists(xcfile):
+						xcconfig_contents = parse_xcconfig(xcfile, module_id, variables)
+						xcconfig_c += xcconfig_contents
+					xcfile = os.path.join(self.project_dir,'modules','iphone',"%s.xcconfig" % module_name)
+					if os.path.exists(xcfile):
+						xcconfig_contents = parse_xcconfig(xcfile, module_id, variables)
+						xcconfig_c += xcconfig_contents
+					mods.write("	[modules addObject:[NSDictionary dictionaryWithObjectsAndKeys:@\"%s\",@\"name\",@\"%s\",@\"moduleid\",@\"%s\",@\"version\",@\"%s\",@\"guid\",@\"%s\",@\"licensekey\",nil]];\n" % (module_name,module_id,module_version,module_guid,module_licensekey));
+				mods.write("	return modules;\n")	
+				mods.write("}\n")
+				mods.write(FOOTER)
+				mods.close()
+				
+				for (name, values) in variables.iteritems():
+					xcconfig_c += name + '=$(inherited) '
+					for value in values:
+						xcconfig_c += '$(%s) ' % value
+					xcconfig_c += '\n'
+				
+				has_modules = True
+				xcconfig = os.path.join(self.iphone_dir,"module.xcconfig")
+				make_xcc = True
+				if os.path.exists(xcconfig):
+					existing_xcc = open(xcconfig).read()
+					# only copy if different so we don't trigger re-compile in xcode
+					make_xcc = existing_xcc!=xcconfig_c
+				if make_xcc:
+					xcconfig = open(xcconfig,'w')
+					xcconfig.write(xcconfig_c)
+					xcconfig.close()
+		#endif deploytype != 'export-build'
+
+		if deploytype=='simulator' or deploytype=='export':
+>>>>>>> master
 			shutil.copy(os.path.join(template_dir,'Classes','defines.h'),os.path.join(self.classes_dir,'defines.h'))
 		
 		if deploytype!='development' or has_modules:
 
-			if os.path.exists(app_dir):
-				self.copy_resources([resources_dir],app_dir)
+			if os.path.exists(app_dir) and deploytype != 'development':
+				self.copy_resources([resources_dir],app_dir,True,module_js)
 				
 			if deploytype == 'production':
 				debugger_plist = os.path.join(app_dir,'debugger.plist')
 				if os.path.exists(debugger_plist):
 					os.remove(debugger_plist)
 					
-			if deploytype!='development':	
+			if deploytype!='development' and deploytype!='export':	
 				defines_file = os.path.join(self.classes_dir,'defines.h')
 				defines_header = open(defines_file,'w+')
 				defines_content = "// Warning: this is generated file. Do not modify!\n\n"
@@ -298,7 +369,7 @@ class Compiler(object):
 					defines_content+="#define %s 1\n"%sym
 				if defines_content!=defines_header.read():
 					defines_header.write(defines_content)
-					defines_header.close()	
+					defines_header.close()
 
 			# deploy any module image files 
 			for module in self.modules:
@@ -328,7 +399,18 @@ class Compiler(object):
 			
 		else:
 			print "[INFO] Skipping JS compile, running from simulator"
-	
+		
+		if deploytype=='development':
+			self.softlink_resources(resources_dir,app_dir)
+			if(os.path.exists(iphone_resources_dir)):
+				self.softlink_resources(iphone_resources_dir,app_dir)
+			dest_mod_dir = os.path.join(app_dir,'modules')
+			src_mod_dir = os.path.join(project_dir,'modules')
+			if(os.path.exists(src_mod_dir)):
+				self.softlink_resources(src_mod_dir,dest_mod_dir)
+				src_mod_iphone_dir = os.path.join(src_mod_dir,'iphone')
+				if(os.path.exists(src_mod_iphone_dir)):
+					self.softlink_resources(os.path.join(project_dir,'modules','iphone'),dest_mod_dir)
 	
 	def add_symbol(self,api):
 		print "[DEBUG] detected symbol: %s" % api
@@ -411,16 +493,47 @@ class Compiler(object):
 		return compile
 				
 	@classmethod	
-	def make_function_from_file(cls,path,file,instance=None):
+	def make_function_from_file(cls,path,file,instance):
 		file_contents = open(os.path.expanduser(file)).read()
-		file_contents = jspacker.jsmin(file_contents)
+		if instance.deploytype == 'production':
+			file_contents = jspacker.jsmin(file_contents)
 		file_contents = file_contents.replace('Titanium.','Ti.')
-		if instance: instance.compile_js(file_contents)
-		data = str(file_contents).encode("hex")
-		method = "dataWithHexString(@\"%s\")" % data
+		instance.compile_js(file_contents)
+
+		tfile = tempfile.NamedTemporaryFile(mode="r+b", delete=False)
+		tfilename = tfile.name
+		tfile.write(file_contents)
+		tfile.close()
+		template_dir = os.path.abspath(os.path.dirname(sys._getframe(0).f_code.co_filename))
+		titanium_prep = os.path.abspath(os.path.join(template_dir,'titanium_prep'))
+		data = os.popen("\"%s\" \"%s\" \"%s\"" % (titanium_prep, tfilename, instance.appid)).read()
+		os.remove(tfilename)
+
+		data = data.translate(None, '\r\n')
+		method = "@\"%s\"" % data
 		return {'method':method,'path':path}
 	
-	def copy_resources(self,sources,target,write_routing=True):
+	def softlink_resources(self,source,target,use_ignoreDirs=True):
+		if not os.path.exists(target):
+			os.makedirs(target)
+		for file in os.listdir(source):
+			if (use_ignoreDirs and (file in ignoreDirs)) or (file in ignoreFiles):
+				continue
+			from_ = os.path.join(source, file)
+			to_ = os.path.join(target, file)
+			if os.path.isdir(from_):
+				print "[DEBUG] creating: %s" % (to_)
+				self.softlink_resources(from_,to_,False)
+			else:
+				print "[DEBUG] linking: %s to %s" % (from_,to_)
+				if os.path.exists(to_):
+					if os.path.islink(to_):
+						os.remove(to_)
+						os.symlink(from_, to_)
+				else:
+					os.symlink(from_, to_)
+	
+	def copy_resources(self,sources,target,write_routing=True,module_js=[]):
 		
 		if write_routing:
 			intf = open(os.path.join(self.classes_dir,'ApplicationRouting.h'),'w+')
@@ -433,15 +546,21 @@ class Compiler(object):
 			impf.write(IMPL_HEADER)
 
 			impf.write("+ (NSData*) resolveAppAsset:(NSString*)path;\n{\n")
-			impf.write("     static NSMutableDictionary *map;\n")
-			impf.write("     if (map==nil)\n")
-			impf.write("     {\n")
+			impf.write("     static NSMutableDictionary *map = nil;\n")
+			impf.write("     if (!map) {\n")
 			impf.write("         map = [[NSMutableDictionary alloc] init];\n")
 
 			impf_buffer = ''
 		
 		if not os.path.exists(os.path.expanduser(target)):
 			os.makedirs(os.path.expanduser(target))
+			
+		def compile_js_file(path,from_):
+			print "[DEBUG] compiling: %s" % from_
+			metadata = Compiler.make_function_from_file(path,from_,self)
+			method = metadata['method']
+			eq = path.replace('.','_')
+			impf.write('         [map setObject:%s forKey:@"%s"];\n' % (method,eq))
 			
 		def add_compiled_resources(source,target):
 			print "[DEBUG] copy resources from %s to %s" % (source,target)
@@ -454,7 +573,7 @@ class Compiler(object):
 					if file in ignoreFiles:
 						continue					
 					prefix = root[len(source):]
-					from_ = os.path.join(root, file)			  
+					from_ = os.path.join(root, file)
 					to_ = os.path.expanduser(from_.replace(source, target, 1))
 					to_directory = os.path.expanduser(os.path.split(to_)[0])
 					if not os.path.exists(to_directory):
@@ -511,12 +630,7 @@ class Compiler(object):
 				for js_file in compiled_targets['.js']:
 					path = js_file['path']
 					from_ = js_file['from']
-					to_ = js_file['to']
-					print "[DEBUG] compiling: %s" % from_
-					metadata = Compiler.make_function_from_file(path,from_,self)
-					method = metadata['method']
-					eq = path.replace('.','_')
-					impf.write('         [map setObject:%s forKey:@"%s"];\n' % (method,eq))
+					compile_js_file(path,from_)
 		
 		# copy in any module assets
 		for metadata in self.modules_metadata:
@@ -530,8 +644,11 @@ class Compiler(object):
 			add_compiled_resources(source,target)
 						
 		if write_routing:
+			for js_file in module_js:
+				compile_js_file(js_file['path'],js_file['from'])
+			
 			impf.write("     }\n")
-			impf.write("     return [map objectForKey:path];\n")
+			impf.write("     return filterData([map objectForKey:path]);\n")
 			impf.write('}\n')
 			impf.write(impf_buffer)
 
@@ -542,11 +659,38 @@ class Compiler(object):
 			impf.close()
 		
 if __name__ == "__main__":
-	project_dir = os.path.expanduser("~/tmp/yoyoyo")
-	appid = "com.appcelerator.yoyoyo"
-	name = "Yo Yo Yo"
-	deploytype = 'development'
-	xcode = False
-	c = Compiler(project_dir,appid,name,deploytype,xcode)
+	argv = sys.argv
+	if len(argv) < 3:
+		print "[USAGE] %s <dir> <deploytype> [devicetype] [ios_version] [sdk_version]" % argv[0]
+		exit(1)
+	
+	project_dir = argv[1]
+	deploytype = argv[2]
+	
+	if deploytype == 'export-build':
+		xcode = True
+	else:
+		xcode = False
+	
+	if len(argv) >= 4:
+		devicefamily = argv[3]
+	else:
+		devicefamily = 'unknown'
+	
+	if len(argv) >= 5:
+		ios = argv[4]
+	else:
+		ios = 'unknown'
+	
+	if len(argv) >= 6:
+		sdk = argv[5]
+	else:
+		sdk = None
+	
+	tiapp_xml = os.path.join(project_dir,'tiapp.xml')
+	ti = TiAppXML(tiapp_xml)
+	appid = ti.properties['id']
+	name = ti.properties['name']
+	c = Compiler(project_dir,appid,name,deploytype,xcode,devicefamily,ios,sdk=sdk)
 	
 	

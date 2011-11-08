@@ -15,31 +15,6 @@
 @property(nonatomic,readonly)	TiUIScrollableViewProxy * proxy;
 @end
 
-
-
-@interface InnerScrollView : UIScrollView<UIScrollViewDelegate>
-{
-}
-@end
-
-@implementation InnerScrollView
-
-- (UIView *)viewForZoomingInScrollView:(UIScrollView *)scrollView
-{
-	if ([[self subviews] count] > 0) {
-		return [[self subviews] objectAtIndex:0];
-	}
-	return nil;
-}
-
-- (void)scrollViewDidEndZooming:(UIScrollView *)scrollView_ withView:(UIView *)view atScale:(float)scale 
-{
-}
-
-@end
-
-
-
 @implementation TiUIScrollableView
 
 #pragma mark Internal 
@@ -61,8 +36,6 @@
 
 -(void)initializerState
 {
-	maxScale = 1.0;
-	minScale = 1.0;
 }
 
 -(CGRect)pageControlRect
@@ -206,18 +179,15 @@
 
 -(int)currentPage
 {
-	int result = 0;
+	int result = currentPage;
     if (scrollview != nil) {
         CGPoint offset = [[self scrollview] contentOffset];
-        if (offset.x >= 0) {
+        if (offset.x > 0) {
             CGSize scrollFrame = [self bounds].size;
             if (scrollFrame.width != 0) {
                 result = floor(offset.x/scrollFrame.width);
             }
-            else {
-				result = currentPage;
-            }
-        }
+		}
     }
 	[pageControl setCurrentPage:result];
     return result;
@@ -252,17 +222,7 @@
 		
 		if (readd)
 		{
-			//TODO: optimize for non-scaled?
-			InnerScrollView *view = [[InnerScrollView alloc] initWithFrame:viewBounds];
-			[view setMaximumZoomScale:maxScale];
-			[view setMinimumZoomScale:minScale];
-			[view setShowsVerticalScrollIndicator:NO];
-			[view setShowsHorizontalScrollIndicator:NO];
-			[view setDelegate:view];
-//			[view setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
-			[view setPagingEnabled:NO];
-			[view setBackgroundColor:[UIColor clearColor]];
-			[view setDelaysContentTouches:NO];
+			UIView *view = [[UIView alloc] initWithFrame:viewBounds];
 			[sv addSubview:view];
 			[view release];
 		}
@@ -445,14 +405,9 @@
 	}
 }
 
--(void)setMaxZoomScale_:(id)scale
+-(void)setDisableBounce_:(id)value
 {
-	maxScale = [TiUtils floatValue:scale];
-}
-
--(void)setMinZoomScale_:(id)scale
-{
-	minScale = [TiUtils floatValue:scale];
+	[[self scrollview] setBounces:![TiUtils boolValue:value]];
 }
 
 #pragma mark Rotation
@@ -490,11 +445,12 @@
 {
 	//switch page control at 50% across the center - this visually looks better
     CGFloat pageWidth = scrollview.frame.size.width;
-    int page = [self currentPage];
+    int page = currentPage;
     int nextPage = floor((scrollview.contentOffset.x - pageWidth / 2) / pageWidth) + 1;
 	if (page != nextPage) {
 		[pageControl setCurrentPage:nextPage];
 		currentPage = nextPage;
+		[self.proxy replaceValue:NUMINT(currentPage) forKey:@"currentPage" notification:NO];
         [self manageCache:currentPage];
 	}
 }

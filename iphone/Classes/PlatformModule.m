@@ -49,7 +49,7 @@ NSString* const DATA_IFACE = @"pdp_ip0";
 			[self replaceValue:@"iphone" forKey:@"osname" notification:NO]; 
 		}
 		
-		macaddress = [[[UIDevice currentDevice] uniqueIdentifier] retain];
+		macaddress = [[TiUtils uniqueIdentifier] retain];
 		
 		NSString *themodel = [theDevice model];
 		
@@ -92,7 +92,7 @@ NSString* const DATA_IFACE = @"pdp_ip0";
 		}
 		else 
 		{
-			model = [themodel retain];
+			model = [[NSString alloc] initWithUTF8String:u.machine];
 		}
 		architecture = [arch retain];
 
@@ -192,13 +192,28 @@ NSString* const DATA_IFACE = @"pdp_ip0";
 
 -(id)id
 {
-	return [[UIDevice currentDevice] uniqueIdentifier];
+	NSLog(@"[WARN] Ti%@.Platform.id DEPRECATED in 1.8.0", @"tanium");
+	return macaddress;
 }
 
 - (NSString *)createUUID:(id)args
 {
 	return [TiUtils createUUID];
 }
+
+-(NSNumber*) is24HourTimeFormat: (id) unused
+{
+	NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
+	[dateFormatter setLocale:[NSLocale currentLocale]];
+	[dateFormatter setTimeStyle:kCFDateFormatterShortStyle];
+	NSString *dateInStringForm = [dateFormatter stringFromDate:[NSDate date]];
+	NSRange amRange = [dateInStringForm rangeOfString:[dateFormatter AMSymbol]];
+	NSRange pmRange = [dateInStringForm rangeOfString:[dateFormatter PMSymbol]];
+	[dateFormatter release];
+	return NUMBOOL(amRange.location == NSNotFound && pmRange.location == NSNotFound);
+	
+}
+
 
 - (NSNumber*)availableMemory
 {
@@ -234,11 +249,11 @@ NSString* const DATA_IFACE = @"pdp_ip0";
 	return NUMBOOL([[UIApplication sharedApplication] canOpenURL:url]);
 }
 
--(PlatformModuleDisplayCapsProxy*)displayCaps
+-(TiPlatformDisplayCaps*)displayCaps
 {
 	if (capabilities == nil)
 	{
-		return [[[PlatformModuleDisplayCapsProxy alloc] _initWithPageContext:[self executionContext]] autorelease];
+		return [[[TiPlatformDisplayCaps alloc] _initWithPageContext:[self executionContext]] autorelease];
 	}
 	return capabilities;
 }

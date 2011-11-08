@@ -13,7 +13,6 @@
 #define USE_TI_UIIPADPOPOVER
 #endif
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
 #import "TiUIView.h"
 #import "MGSplitViewController.h"
 
@@ -27,10 +26,8 @@
 
 -(UIViewController*)controller;
 -(void)setToolbar:(id)items withObject:(id)properties;
+-(void)setMasterPopupVisible_:(id)value;
 
 @end
-
-#endif
-
 
 #endif
