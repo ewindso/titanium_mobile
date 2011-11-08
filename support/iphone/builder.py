@@ -854,54 +854,8 @@ def main(args):
 				ti.properties['version']=version
 				pp = os.path.expanduser("~/Library/MobileDevice/Provisioning Profiles/%s.mobileprovision" % appuuid)
 				provisioning_profile = read_provisioning_profile(pp,o)
-<<<<<<< HEAD
-			
-			
-			def write_debugger_plist(debuggerplist):
-				debugger_tmpl = os.path.join(template_dir,'debugger.plist')
-				plist = codecs.open(debugger_tmpl, encoding='utf-8').read()
-				if debughost:
-					plist = plist.replace('__DEBUGGER_HOST__',debughost)
-					plist = plist.replace('__DEBUGGER_PORT__',debugport)
-				else:
-					plist = plist.replace('__DEBUGGER_HOST__','')
-					plist = plist.replace('__DEBUGGER_PORT__','')
-				pf = codecs.open(debuggerplist,'w', encoding='utf-8')
-				pf.write(plist)
-				pf.close()
-				
-				
-# TODO:				
-# This code is used elsewhere, as well.  We should move stuff like this to
-# a common file.
-			def write_info_plist(infoplist_tmpl):
-				plist = codecs.open(infoplist_tmpl, encoding='utf-8').read()
-				plist = plist.replace('__PROJECT_NAME__',name)
-				plist = plist.replace('__PROJECT_ID__',appid)
-				plist = plist.replace('__URL__',appid)
-				urlscheme = name.replace('.','_').replace(' ','').lower()
-				plist = plist.replace('__URLSCHEME__',urlscheme)
-				if ti.has_app_property('ti.facebook.appid'):
-					fbid = ti.get_app_property('ti.facebook.appid')
-					plist = plist.replace('__ADDITIONAL_URL_SCHEMES__', '<string>fb%s</string>' % fbid)
-				else:
-					plist = plist.replace('__ADDITIONAL_URL_SCHEMES__','')
-				pf = codecs.open(infoplist,'w', encoding='utf-8')
-				pf.write(plist)
-				pf.close()			
-
-			# if the user has a Info.plist in their project directory, consider
-			# that a custom override
-			infoplist_tmpl = os.path.join(project_dir,'Info.plist')
-			if os.path.exists(infoplist_tmpl):
-				shutil.copy(infoplist_tmpl,infoplist)
-			else:
-				infoplist_tmpl = os.path.join(template_dir,'Info.plist')
-				write_info_plist(infoplist_tmpl)
-=======
 	
 			create_info_plist(ti, template_dir, project_dir, infoplist)
->>>>>>> master
 
 			applogo = None
 			clean_build = False
@@ -1042,21 +996,11 @@ def main(args):
 
 			# compile debugger file
 			debug_plist = os.path.join(iphone_dir,'Resources','debugger.plist')
-<<<<<<< HEAD
-			write_debugger_plist(debug_plist)
-			# Every time the debugger changes, we need to relink so that the new
-			# host/port gets picked up
-			if debughost:
-				force_xcode = True
-
-			if command!='simulator':
-=======
 			
 			# Force an xcodebuild if the debugger.plist has changed
 			force_xcode = write_debugger_plist(debughost, debugport, template_dir, debug_plist)
 
 			if command not in ['simulator', 'build']:
->>>>>>> master
 				# compile plist into binary format so it's faster to load
 				# we can be slow on simulator
 				os.system("/usr/bin/plutil -convert binary1 \"%s\"" % app_stylesheet)
@@ -1310,13 +1254,8 @@ def main(args):
 					f.write("%s,%s,%s,%s" % (template_dir,log_id,lib_hash,githash))
 					f.close()
 
-<<<<<<< HEAD
-				# this is a simulator build
-				if command == 'simulator':
-=======
 				# both simulator and build require an xcodebuild
 				if command in ['simulator', 'build']:
->>>>>>> master
 					debugstr = ''
 					if debughost:
 						debugstr = 'DEBUGGER_ENABLED=1'

@@ -33,19 +33,11 @@ function getOrientation(o)
 		case Titanium.UI.PORTRAIT:
 			return 'portrait';
 		case Titanium.UI.UPSIDE_PORTRAIT:
-<<<<<<< HEAD
-			return 'upside portrait';
-		case Titanium.UI.LANDSCAPE_LEFT:
-			return 'landscape left';
-		case Titanium.UI.LANDSCAPE_RIGHT:
-			return 'landscape right';
-=======
 			return 'reverse portrait';
 		case Titanium.UI.LANDSCAPE_LEFT:
 			return 'landscape';
 		case Titanium.UI.LANDSCAPE_RIGHT:
 			return 'reverse landscape';
->>>>>>> master
 		case Titanium.UI.FACE_UP:
 			return 'face up';
 		case Titanium.UI.FACE_DOWN:

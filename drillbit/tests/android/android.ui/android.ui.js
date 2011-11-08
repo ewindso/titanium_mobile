@@ -289,11 +289,6 @@ describe("Ti.UI.Android tests", {
 		});
 		failureTimeout = setTimeout(function(){
 			callback.failed("Test may have crashed app.  Was never able to read back tableview dimensions.");
-<<<<<<< HEAD
-		},5000);
-		w.open();
-
-=======
 		},10000);
 		w.open();
 
@@ -376,7 +371,6 @@ describe("Ti.UI.Android tests", {
 		v.setKeepScreenOn(true);
 		valueOf(v.keepScreenOn).shouldBeTrue();
 		valueOf(v.getKeepScreenOn()).shouldBeTrue();
->>>>>>> master
 	}
 })
 

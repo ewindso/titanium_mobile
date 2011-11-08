@@ -369,8 +369,6 @@ describe("Ti.Filesystem tests", {
 		}
 
 		valueOf(newFile.move(Titanium.Filesystem.applicationDataDirectory+'/moved.txt')).shouldBeTrue();
-<<<<<<< HEAD
-=======
 	},
 
 	tempDirTest:function() {
@@ -403,6 +401,5 @@ describe("Ti.Filesystem tests", {
 		valueOf(blob.length).shouldBe(0);
 		valueOf(blob.text).shouldBe("");
 		valueOf(blob.toString()).shouldBe("");
->>>>>>> master
 	}
 });

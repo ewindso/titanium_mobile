@@ -245,56 +245,6 @@ class Compiler(object):
 			if os.path.exists(app_dir):
 				self.copy_resources([iphone_resources_dir],app_dir,False)
 
-<<<<<<< HEAD
-		if len(modules) > 0:
-			mods = open(os.path.join(self.classes_dir,'ApplicationMods.m'),'w+')
-			variables = {}
-			mods.write(MODULE_IMPL_HEADER)
-			for module in modules:
-				module_id = module.manifest.moduleid.lower()
-				module_name = module.manifest.name.lower()
-				module_version = module.manifest.version
-				module_guid = ''
-				module_licensekey = ''
-				if module.manifest.has_property('guid'):
-					module_guid = module.manifest.guid
-				if module.manifest.has_property('licensekey'):
-					module_licensekey = module.manifest.licensekey
-				self.modules_metadata.append({'guid':module_guid,'name':module_name,'id':module_id,'dir':module.path,'version':module_version,'licensekey':module_licensekey})
-				xcfile = module.get_resource('module.xcconfig')
-				if os.path.exists(xcfile):
-					xcconfig_contents = parse_xcconfig(xcfile, module_id, variables)
-					xcconfig_c += xcconfig_contents
-				xcfile = os.path.join(self.project_dir,'modules','iphone',"%s.xcconfig" % module_name)
-				if os.path.exists(xcfile):
-					xcconfig_contents = parse_xcconfig(xcfile, module_id, variables)
-					xcconfig_c += xcconfig_contents
-				mods.write("	[modules addObject:[NSDictionary dictionaryWithObjectsAndKeys:@\"%s\",@\"name\",@\"%s\",@\"moduleid\",@\"%s\",@\"version\",@\"%s\",@\"guid\",@\"%s\",@\"licensekey\",nil]];\n" % (module_name,module_id,module_version,module_guid,module_licensekey));
-			mods.write("	return modules;\n")	
-			mods.write("}\n")
-			mods.write(FOOTER)
-			mods.close()
-			
-			for (name, values) in variables.iteritems():
-				xcconfig_c += name + '=$(inherited) '
-				for value in values:
-					xcconfig_c += '$(%s) ' % value
-				xcconfig_c += '\n'
-			
-			has_modules = True
-			xcconfig = os.path.join(self.iphone_dir,"module.xcconfig")
-			make_xcc = True
-			if os.path.exists(xcconfig):
-				existing_xcc = open(xcconfig).read()
-				# only copy if different so we don't trigger re-compile in xcode
-				make_xcc = existing_xcc!=xcconfig_c
-			if make_xcc:
-				xcconfig = open(xcconfig,'w')
-				xcconfig.write(xcconfig_c)
-				xcconfig.close()
-
-		if deploytype=='simulator':
-=======
 			# generate the includes for all compiled modules
 			xcconfig_c = "// this is a generated file - DO NOT EDIT\n\n"
 	
@@ -347,7 +297,6 @@ class Compiler(object):
 		#endif deploytype != 'export-build'
 
 		if deploytype=='simulator' or deploytype=='export':
->>>>>>> master
 			shutil.copy(os.path.join(template_dir,'Classes','defines.h'),os.path.join(self.classes_dir,'defines.h'))
 		
 		if deploytype!='development' or has_modules:

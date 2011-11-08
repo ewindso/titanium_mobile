@@ -4,11 +4,8 @@
 # Licensed under the terms of the Apache Public License
 # Please see the LICENSE included with this distribution for details.
 #
-<<<<<<< HEAD
-=======
 # A custom server that speeds up development time in Android significantly
 
->>>>>>> master
 import os, sys, time, optparse, logging
 import urllib, simplejson, threading
 import SocketServer, socket, struct, codecs

@@ -24,7 +24,7 @@ import java.util.UUID;
 
 import org.appcelerator.titanium.ITiAppInfo;
 import org.appcelerator.titanium.TiApplication;
-import org.mozilla.javascript.NativeDate;
+//import org.mozilla.javascript.NativeDate;
 
 import android.Manifest;
 import android.app.Activity;
@@ -136,10 +136,10 @@ public class TiPlatformHelper
 	{
 		// http://jira.appcelerator.org/browse/TIMOB-3742
 		// toLocaleTimeString / toLocaleString don't honor the user's 24 hour setting
-		if (NativeDate.localeDateFormatter != null) return;
+		//if (NativeDate.localeDateFormatter != null) return;
 
-		NativeDate.localeDateFormatter = android.text.format.DateFormat.getLongDateFormat(context);
-		NativeDate.localeTimeFormatter = android.text.format.DateFormat.getTimeFormat(context);
+		//NativeDate.localeDateFormatter = android.text.format.DateFormat.getLongDateFormat(context);
+		//NativeDate.localeTimeFormatter = android.text.format.DateFormat.getTimeFormat(context);
 
 		SimpleDateFormat timeFormat = (SimpleDateFormat)
 			DateFormat.getDateTimeInstance(DateFormat.LONG, DateFormat.LONG);
@@ -154,7 +154,7 @@ public class TiPlatformHelper
 			}
 		}
 
-		NativeDate.localeDateTimeFormatter = timeFormat;
+		//NativeDate.localeDateTimeFormatter = timeFormat;
 	}
 
 	public static ITiAppInfo getAppInfo() {
