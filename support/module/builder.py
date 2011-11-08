@@ -157,6 +157,8 @@ def docgen(module_dir, dest_dir):
 		return
 
 	for file in os.listdir(doc_dir):
+		if file in ignoreFiles or os.path.isdir(os.path.join(doc_dir, file)):
+			continue
 		md = open(os.path.join(doc_dir, file), 'r').read()
 		html = markdown.markdown(md)
 		filename = string.replace(file, '.md', '.html')

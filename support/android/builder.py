@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Android Simulator for building a project and launching
-# the Android Emulator or on the device
+# Appcelerator Titanium Mobile
+# Copyright (c) 2011 by Appcelerator, Inc. All Rights Reserved.
+# Licensed under the terms of the Apache Public License
+# Please see the LICENSE included with this distribution for details.
+#
+# General builder script for staging, packaging, deploying,
+# and debugging Titanium Mobile applications on Android
 #
 import os, sys, subprocess, shutil, time, signal, string, platform, re, glob, hashlib, imp
 import run, avd, prereq, zipfile, tempfile, fnmatch, codecs, traceback, simplejson
@@ -342,12 +347,16 @@ class Builder(object):
 		name = name.replace(' ', '_')
 		if not os.path.exists(self.home_dir):
 			os.makedirs(self.home_dir)
-		if not os.path.exists(self.sdcard):
-			info("Creating shared 64M SD card for use in Android emulator(s)")
-			run.run([self.sdk.get_mksdcard(), '64M', self.sdcard])
-
 		avd_path = os.path.join(self.android_home_dir, 'avd')
 		my_avd = os.path.join(avd_path,"%s.avd" % name)
+		own_sdcard = os.path.join(self.home_dir, '%s.sdcard' % name)
+		if not os.path.exists(my_avd) or os.path.exists(own_sdcard):
+			# starting with 1.7.2, when we create a new avd, give it its own
+			# SDCard as well.
+			self.sdcard = own_sdcard
+		if not os.path.exists(self.sdcard):
+			info("Creating 64M SD card for use in Android emulator")
+			run.run([self.sdk.get_mksdcard(), '64M', self.sdcard])
 		if not os.path.exists(my_avd):
 			info("Creating new Android Virtual Device (%s %s)" % (avd_id,avd_skin))
 			inputgen = os.path.join(template_dir,'input.py')
@@ -395,7 +404,7 @@ class Builder(object):
 			'-sdcard',
 			self.sdcard,
 			'-logcat',
-			"'*:d *'",
+			'*:d,*',
 			'-no-boot-anim',
 			'-partition-size',
 			'128' # in between nexusone and droid
@@ -465,9 +474,6 @@ class Builder(object):
 				warn('You have both an android/images/%s folder and an android/images/res-%sdpi folder. Files from both of these folders will end up in res/drawable-%sdpi.  If two files are named the same, there is no guarantee which one will be copied last and therefore be the one the application uses.  You should use just one of these folders to avoid conflicts.' % (check, check[0], check[0]))
 
 	def copy_module_platform_folders(self):
-		module_dir = os.path.join(self.top_dir, 'modules', 'android')
-		if not os.path.exists(module_dir):
-			return
 		for module in self.modules:
 			platform_folder = os.path.join(module.path, 'platform', 'android')
 			if os.path.exists(platform_folder):
@@ -569,8 +575,10 @@ class Builder(object):
 		self.js_changed = False
 		tiapp_delta = self.project_deltafy.scan_single_file(self.project_tiappxml)
 		self.tiapp_changed = tiapp_delta is not None
-		if self.tiapp_changed or self.force_rebuild:
-			info("Detected tiapp.xml change, forcing full re-build...")
+		full_copy = not os.path.exists(self.assets_resources_dir)
+
+		if self.tiapp_changed or self.force_rebuild or full_copy:
+			info("Detected tiapp.xml change (or assets deleted), forcing full re-build...")
 			# force a clean scan/copy when the tiapp.xml has changed
 			self.project_deltafy.clear_state()
 			self.project_deltas = self.project_deltafy.scan()
@@ -795,20 +803,20 @@ class Builder(object):
 
 		self.use_maps = False
 		self.res_changed = False
-		iconname = self.tiapp.properties['icon']
-		iconpath = os.path.join(self.assets_resources_dir, iconname)
-		iconext = os.path.splitext(iconpath)[1]
+		icon_name = self.tiapp.properties['icon']
+		icon_path = os.path.join(self.assets_resources_dir, icon_name)
+		icon_ext = os.path.splitext(icon_path)[1]
 
-		res_drawable_dest = os.path.join(self.project_dir, 'res','drawable')
+		res_drawable_dest = os.path.join(self.project_dir, 'res', 'drawable')
 		if not os.path.exists(res_drawable_dest):
 			os.makedirs(res_drawable_dest)
 
 		default_icon = os.path.join(self.support_resources_dir, 'default.png')
-		dest_icon = os.path.join(res_drawable_dest, 'appicon%s' % iconext)
-		if Deltafy.needs_update(iconpath, dest_icon):
+		dest_icon = os.path.join(res_drawable_dest, 'appicon%s' % icon_ext)
+		if Deltafy.needs_update(icon_path, dest_icon):
 			self.res_changed = True
-			debug("copying app icon: %s" % iconpath)
-			shutil.copy(iconpath, dest_icon)
+			debug("copying app icon: %s" % icon_path)
+			shutil.copy(icon_path, dest_icon)
 		elif Deltafy.needs_update(default_icon, dest_icon):
 			self.res_changed = True
 			debug("copying default app icon")
@@ -1020,12 +1028,15 @@ class Builder(object):
 			# that user put in <activity> entries that duplicate our own,
 			# such as if they want a custom theme on TiActivity.  So we should delete any dupes.
 			dom = parseString(default_manifest_contents)
+			package_name = dom.documentElement.getAttribute('package')
 			manifest_activities = dom.getElementsByTagName('activity')
 			activity_names = []
 			nodes_to_delete = []
 			for manifest_activity in manifest_activities:
 				if manifest_activity.hasAttribute('android:name'):
 					activity_name = manifest_activity.getAttribute('android:name')
+					if activity_name.startswith('.'):
+						activity_name = package_name + activity_name
 					if activity_name in activity_names:
 						nodes_to_delete.append(manifest_activity)
 					else:
@@ -1195,21 +1206,32 @@ class Builder(object):
 				self.module_jars.append(jar)
 				classpath = os.pathsep.join([classpath, jar])
 
+		if len(self.module_jars) > 0:
+			# kroll-apt.jar is needed for modules
+			classpath = os.pathsep.join([classpath, self.kroll_apt_jar])
+
 		if self.deploy_type != 'production':
 			classpath = os.pathsep.join([classpath,
 				os.path.join(self.support_dir, 'lib', 'titanium-verify.jar'),
 				os.path.join(self.support_dir, 'lib', 'titanium-debug.jar')])
 
 		debug("Building Java Sources: " + " ".join(src_list))
-		javac_command = [self.javac, '-encoding', 'utf8', '-classpath', classpath, '-d', self.classes_dir, '-sourcepath', self.project_src_dir, '-sourcepath', self.project_gen_dir]
+		javac_command = [self.javac, '-encoding', 'utf8',
+			'-classpath', classpath, '-d', self.classes_dir, '-proc:none',
+			'-sourcepath', self.project_src_dir,
+			'-sourcepath', self.project_gen_dir]
 		(src_list_osfile, src_list_filename) = tempfile.mkstemp()
 		src_list_file = os.fdopen(src_list_osfile, 'w')
 		src_list_file.write("\n".join(src_list))
 		src_list_file.close()
 		
 		javac_command.append('@' + src_list_filename)
-		out = run.run(javac_command)
+		(out, err, javac_process) = run.run(javac_command, ignore_error=True, return_error=True, return_process=True)
 		os.remove(src_list_filename)
+		if javac_process.returncode != 0:
+			error("Error(s) compiling generated Java code")
+			error(str(err))
+			sys.exit(1)
 		return True
 
 	def create_unsigned_apk(self, resources_zip_file):
@@ -1609,6 +1631,8 @@ class Builder(object):
 		self.aapt = self.sdk.get_aapt()
 		self.android_jar = self.sdk.get_android_jar()
 		self.titanium_jar = os.path.join(self.support_dir,'titanium.jar')
+		self.kroll_apt_jar = os.path.join(self.support_dir, 'kroll-apt.jar')
+
 		dx = self.sdk.get_dx()
 		self.apkbuilder = self.sdk.get_apkbuilder()
 		self.sdcard_resources = '/sdcard/Ti.debug/%s/Resources' % self.app_id

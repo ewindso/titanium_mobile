@@ -5,12 +5,13 @@
 # the application on the device via iTunes
 # 
 
-import os, sys, uuid, subprocess, shutil, signal, string, traceback, imp
+import os, sys, uuid, subprocess, shutil, signal, string, traceback, imp, filecmp
 import platform, time, re, run, glob, codecs, hashlib, datetime, plistlib
 from compiler import Compiler
 from projector import Projector
 from xml.dom.minidom import parseString
 from pbxproj import PBXProj
+from xml.etree.ElementTree import ElementTree
 from os.path import join, splitext, split, exists
 
 # the template_dir is the path where this file lives on disk
@@ -376,6 +377,74 @@ def distribute_xc4(name, icon, log):
 	os.rename(archive_bundle,temp)
 	os.rename(temp,archive_bundle)
 
+HEADER = """/**
+* Appcelerator Titanium Mobile
+* This is generated code. Do not modify. Your changes *will* be lost.
+* Generated code is Copyright (c) 2009-2011 by Appcelerator, Inc.
+* All Rights Reserved.
+*/
+#import <Foundation/Foundation.h>
+"""
+
+DEFAULTS_IMPL_HEADER= """#import "TiUtils.h"
+#import "ApplicationDefaults.h"
+ 
+@implementation ApplicationDefaults
+  
++ (NSMutableDictionary*) copyDefaults
+{
+    NSMutableDictionary * _property = [[NSMutableDictionary alloc] init];\n
+"""
+
+FOOTER ="""
+@end
+"""
+
+def copy_tiapp_properties(project_dir):
+	tiapp = ElementTree()
+	src_root = os.path.dirname(sys.argv[0])
+	assets_tiappxml = os.path.join(project_dir,'tiapp.xml')
+	if not os.path.exists(assets_tiappxml):
+		shutil.copy(os.path.join(project_dir, 'tiapp.xml'), assets_tiappxml)
+	tiapp.parse(open(assets_tiappxml, 'r'))
+	impf = open("ApplicationDefaults.m",'w+')
+	appl_default = os.path.join(project_dir,'build','iphone','Classes','ApplicationDefaults.m')
+	impf.write(HEADER)
+	impf.write(DEFAULTS_IMPL_HEADER)
+	for property_el in tiapp.findall("property"):
+		name = property_el.get("name")
+		type = property_el.get("type")
+		value = property_el.text
+		if name == None: continue
+		if value == None: value = ""
+		if type == "string":
+			impf.write("""    [_property setObject:[TiUtils stringValue:@"%s"] forKey:@"%s"];\n"""%(value,name))
+		elif type == "bool":
+			impf.write("""    [_property setObject:[NSNumber numberWithBool:[TiUtils boolValue:@"%s"]] forKey:@"%s"];\n"""%(value,name))
+		elif type == "int":
+			impf.write("""    [_property setObject:[NSNumber numberWithInt:[TiUtils intValue:@"%s"]] forKey:@"%s"];\n"""%(value,name))
+		elif type == "double":
+			impf.write("""    [_property setObject:[NSNumber numberWithDouble:[TiUtils doubleValue:@"%s"]] forKey:@"%s"];\n"""%(value,name))
+		elif type == None:
+			impf.write("""    [_property setObject:[TiUtils stringValue:@"%s"] forKey:@"%s"];\n"""%(value,name))
+		else:
+			print """[WARN] Cannot set property "%s" , type "%s" not supported""" % (name,type)
+	if (len(tiapp.findall("property")) > 0) :
+		impf.write("\n    return _property;\n}")
+	else: 
+		impf.write("\n    return NULL;\n}")
+	impf.write(FOOTER)
+	impf.close()
+	if open(appl_default,'r').read() == open('ApplicationDefaults.m','r').read():
+		os.remove('ApplicationDefaults.m')
+		return False
+	else:
+		shutil.copyfile('ApplicationDefaults.m',appl_default)
+		os.remove('ApplicationDefaults.m')
+		return True
+	
+
+
 #
 # this script is invoked from our tooling but you can run from command line too if 
 # you know the arguments
@@ -700,9 +769,20 @@ def main(args):
 				else:
 					plist = plist.replace('__DEBUGGER_HOST__','')
 					plist = plist.replace('__DEBUGGER_PORT__','')
-				pf = codecs.open(debuggerplist,'w', encoding='utf-8')
+
+				tempfile = debuggerplist+'.tmp'
+				pf = codecs.open(tempfile,'w',encoding='utf-8')
 				pf.write(plist)
 				pf.close()
+				
+				if os.path.exists(debuggerplist):
+					changed = not filecmp.cmp(tempfile, debuggerplist, shallow=False)
+				else:
+					changed = True
+					
+				shutil.move(tempfile, debuggerplist)
+				
+				return changed
 				
 				
 # TODO:				
@@ -812,8 +892,8 @@ def main(args):
 				contents="TI_VERSION=%s\n"% sdk_version
 				contents+="TI_SDK_DIR=%s\n" % template_dir.replace(sdk_version,'$(TI_VERSION)')
 				contents+="TI_APPID=%s\n" % appid
-				contents+="OTHER_LDFLAGS[sdk=iphoneos4*]=$(inherited) -weak_framework iAd\n"
-				contents+="OTHER_LDFLAGS[sdk=iphonesimulator4*]=$(inherited) -weak_framework iAd\n"
+				contents+="OTHER_LDFLAGS[sdk=iphoneos*]=$(inherited) -weak_framework iAd\n"
+				contents+="OTHER_LDFLAGS[sdk=iphonesimulator*]=$(inherited) -weak_framework iAd\n"
 				contents+="#include \"module\"\n"
 				xcconfig = open(project_xcconfig,'w+')
 				xccontents = xcconfig.read()
@@ -883,11 +963,9 @@ def main(args):
 
 			# compile debugger file
 			debug_plist = os.path.join(iphone_dir,'Resources','debugger.plist')
-			write_debugger_plist(debug_plist)
-			# Every time the debugger changes, we need to relink so that the new
-			# host/port gets picked up
-			if debughost:
-				force_xcode = True
+			
+			# Force an xcodebuild if the debugger.plist has changed
+			force_xcode = write_debugger_plist(debug_plist)
 
 			if command!='simulator':
 				# compile plist into binary format so it's faster to load
@@ -1011,6 +1089,11 @@ def main(args):
 					shutil.copy(defaultpng_path,app_dir)
 
 				extra_args = None
+
+				recompile = copy_tiapp_properties(project_dir)
+				# if the anything changed in the application defaults then we have to force  a xcode build.
+				if recompile == True:
+					force_xcode = recompile
 
 				if devicefamily!=None:
 					# Meet the minimum requirements for ipad when necessary

@@ -5,6 +5,7 @@
  * Please see the LICENSE included with this distribution for details.
  */
 #import <QuartzCore/QuartzCore.h>
+#import <CommonCrypto/CommonDigest.h>
 
 #import "TiBase.h"
 #import "TiUtils.h"
@@ -18,7 +19,6 @@
 #import "TiFile.h"
 #import "TiBlob.h"
 
-
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
 // for checking version
 #import <sys/utsname.h>
@@ -26,13 +26,52 @@
 
 #import "UIImage+Resize.h"
 
+#import <sys/types.h>
+#import <stdio.h>
+#import <string.h>
+#import <sys/socket.h>
+#import <net/if_dl.h>
+#import <ifaddrs.h>
+
+#if !defined(IFT_ETHER)
+#define IFT_ETHER 0x6
+#endif
+
 #if TARGET_IPHONE_SIMULATOR
 extern NSString * const TI_APPLICATION_RESOURCE_DIR;
 #endif
 
-NSDictionary* encodingMap = nil;
-NSDictionary* typeMap = nil;
-NSDictionary* sizeMap = nil;
+static NSDictionary* encodingMap = nil;
+static NSDictionary* typeMap = nil;
+static NSDictionary* sizeMap = nil;
+static NSString* kDeviceUUIDString = @"com.appcelerator.uuid"; // don't obfuscate
+	
+#if 0
+static void getAddrInternal(char* macAddress, const char* ifName) {
+    struct ifaddrs* addrs;
+    if (!getifaddrs(&addrs)) {
+        for (struct ifaddrs* cursor = addrs; cursor; cursor = cursor->ifa_next) {
+            if (cursor->ifa_addr->sa_family != AF_LINK) continue;
+            if (((const struct sockaddr_dl *) cursor->ifa_addr)->sdl_type != IFT_ETHER) continue;
+            if (strcmp(ifName, cursor->ifa_name)) continue;
+            const struct sockaddr_dl* dlAddr = (const struct sockaddr_dl*)cursor->ifa_addr;
+            const unsigned char* base = (const unsigned char*)&dlAddr->sdl_data[dlAddr->sdl_nlen];
+            strcpy(macAddress, ""); 
+            for (int i = 0; i < dlAddr->sdl_alen; ++i) {
+                if (i) {
+                    strcat(macAddress, ":");
+                }
+                char partialAddr[3];
+                sprintf(partialAddr, "%02X", base[i]);
+                strcat(macAddress, partialAddr);
+                
+            }
+
+        }
+        freeifaddrs(addrs);
+    }    
+}
+#endif
 
 @implementation TiUtils
 
@@ -377,6 +416,9 @@ NSDictionary* sizeMap = nil;
 		if(isValid != NULL) *isValid = YES;
 		return [value floatValue];
 	}
+    if (isValid != NULL) {
+        *isValid = NO;
+    }
 	return def;
 }
 
@@ -393,6 +435,9 @@ NSDictionary* sizeMap = nil;
 		}
 		return [value intValue];
 	}
+    if (isValid != NULL) {
+        *isValid = NO;
+    }
 	return def;	
 }
 
@@ -1217,7 +1262,7 @@ if ([str isEqualToString:@#orientation]) return orientation;
 	BOOL app = [[url scheme] hasPrefix:@"app"];
 	if ([url isFileURL] || app)
 	{
-		BOOL had_splash_removed = NO;
+		BOOL leadingSlashRemoved = NO;
 		NSString *urlstring = [[url standardizedURL] path];
 		NSString *resourceurl = [[NSBundle mainBundle] resourcePath];
 		NSRange range = [urlstring rangeOfString:resourceurl];
@@ -1228,11 +1273,11 @@ if ([str isEqualToString:@#orientation]) return orientation;
 		}
 		if ([appurlstr hasPrefix:@"/"])
 		{
-			had_splash_removed = YES;
+			leadingSlashRemoved = YES;
 			appurlstr = [appurlstr substringFromIndex:1];
 		}
 #if TARGET_IPHONE_SIMULATOR
-		if (app==YES && had_splash_removed)
+		if (app==YES && leadingSlashRemoved)
 		{
 			// on simulator we want to keep slash since it's coming from file
 			appurlstr = [@"/" stringByAppendingString:appurlstr];
@@ -1538,4 +1583,48 @@ if ([str isEqualToString:@#orientation]) return orientation;
     return (position+size);
 }
 
++(NSString*)convertToHex:(unsigned char*)result length:(size_t)length
+{
+	NSMutableString* encoded = [[NSMutableString alloc] initWithCapacity:length];
+	for (int i=0; i < length; i++) {
+		[encoded appendFormat:@"%02x",result[i]];
+	}
+	NSString* value = [encoded lowercaseString];
+	[encoded release];
+	return value;
+}
+
++(NSString*)md5:(NSData*)data
+{
+	unsigned char result[CC_MD5_DIGEST_LENGTH];
+	CC_MD5([data bytes], [data length], result);
+	return [self convertToHex:(unsigned char*)&result length:CC_MD5_DIGEST_LENGTH];    
+}
+
++(NSString*)oldUUID
+{
+	NSString* result = nil;
+	UIDevice* currentDevice = [UIDevice currentDevice];
+	if ([currentDevice respondsToSelector:@selector(uniqueIdentifier)]) {
+		result = [currentDevice performSelector:@selector(uniqueIdentifier)];
+	}
+	return result;
+}
+
+#if 0
++(NSString*)macmd5
+{
+    char addrString[18];
+    getAddrInternal(&addrString[0],"en0");
+    NSString* dataString = [[[NSString alloc] initWithCString:addrString encoding:NSUTF8StringEncoding] autorelease];
+    NSData* data = [dataString dataUsingEncoding:NSUTF8StringEncoding];
+    return [TiUtils md5:data];
+}
+#endif
+
++(NSString*)uniqueIdentifier
+{
+    NSString* uid = [TiUtils oldUUID];
+    return uid;
+}
 @end

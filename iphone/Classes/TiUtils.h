@@ -81,6 +81,8 @@ typedef enum {
 
 +(int)intValue:(id)value def:(int)def;
 
++(int)intValue:(id)value def:(int)def valid:(BOOL*)isValid;
+
 +(TiColor*)colorValue:(id)value;
 
 +(TiDimension)dimensionValue:(id)value;
@@ -214,4 +216,9 @@ typedef enum {
 
 +(int)encodeNumber:(NSNumber*)data toBuffer:(TiBuffer*)dest offset:(int)position type:(NSString*)type endianness:(CFByteOrder)byteOrder;
 
++(NSString*)md5:(NSData*)data;
+
++(NSString*)convertToHex:(unsigned char*)result length:(size_t)length;
+
++(NSString*)uniqueIdentifier;
 @end

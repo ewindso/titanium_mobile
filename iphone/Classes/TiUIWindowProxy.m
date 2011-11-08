@@ -13,6 +13,7 @@
 #import "TiComplexValue.h"
 #import "TiApp.h"
 #import "TiTabController.h"
+#import "TiLayoutQueue.h"
 
 // this is how long we should wait on the new JS context to be loaded
 // holding the UI thread before we return during an window open. we 
@@ -104,12 +105,18 @@
 
 @implementation TiUIWindowProxy
 
+-(void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration
+{
+	[TiLayoutQueue addViewProxy:self];
+}
+
 -(void)_destroy
 {
     if (![self closing]) {
         [self performSelectorOnMainThread:@selector(close:) withObject:nil waitUntilDone:YES];
     }
     
+	[barImageView performSelectorOnMainThread:@selector(removeFromSuperview) withObject:nil waitUntilDone:NO];
 	RELEASE_TO_NIL(barImageView);
 	if (context!=nil)
 	{
@@ -309,9 +316,20 @@
 	
 	[barImageView setFrame:barFrame];
 	
-	if ([[ourNB subviews] indexOfObject:barImageView] != 0)
+	int barImageViewIndex = 0;
+	if ([ourNB respondsToSelector:@selector(setBackgroundImage:forBarMetrics:)]) {
+	/*
+	 *	While iOS 5 has methods for setting the background Image, using it requires
+	 *	linking to that SDK (the mentioned bar metrics is an enumeration) which,
+	 *	while iOS 5 is behind the NDA, isn't an option.
+	 *	TODO: Update when iOS 5 is not NDAed for something more elegant.
+	 */
+		barImageViewIndex = 1;
+	}
+	
+	if ([[ourNB subviews] indexOfObject:barImageView] != barImageViewIndex)
 	{
-		[ourNB insertSubview:barImageView atIndex:0];
+		[ourNB insertSubview:barImageView atIndex:barImageViewIndex];
 	}
 }
 
@@ -775,7 +793,7 @@ else{\
 
 -(void)_tabBeforeBlur
 {
-//	[barImageView removeFromSuperview];
+	[barImageView removeFromSuperview];
 	[super _tabBeforeBlur];
 }
 
