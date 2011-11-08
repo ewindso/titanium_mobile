@@ -440,12 +440,8 @@ MAKE_SYSTEM_PROP(CONTACTS_SORT_LAST_NAME,kABPersonSortByLastName);
                 if (CFlabel != NULL) {
                     label = [NSString stringWithString:(NSString*)CFlabel];
                 }
-<<<<<<< HEAD
-                else {
-=======
                 // There may also be cases where we get a property from the system that we can't handle, because it's undocumented or not in the map.
                 else if (propertyName != nil) {
->>>>>>> master
                     label = [NSString stringWithString:propertyName];
                 }
             }

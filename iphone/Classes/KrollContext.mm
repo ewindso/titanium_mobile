@@ -1199,11 +1199,7 @@ static TiValueRef StringFormatDecimalCallback (TiContextRef jsContext, TiObjectR
 					entry = nil;
 				}				
 			}
-<<<<<<< HEAD
-            [pool_ drain];
-=======
             [pool_ release];
->>>>>>> master
 		}
 
 		// TODO: experiment, attempt to collect more often than usual given our environment

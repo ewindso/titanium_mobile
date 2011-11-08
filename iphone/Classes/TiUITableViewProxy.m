@@ -601,19 +601,6 @@ NSArray * tableKeySequence;
 	id data = [args objectAtIndex:0];
 	NSDictionary *anim = [args count] > 1 ? [args objectAtIndex:1] : nil;
 	
-<<<<<<< HEAD
-	TiUITableViewRowProxy *row = [self tableRowFromArg:data];
-
-	TiUITableView *table = [self viewInitialized]?[self tableView]:nil;
-
-	if (sections == nil || [sections count]==0)
-	{
-		[self setData:[NSArray arrayWithObject:data] withObject:anim];
-		return;
-	}
-	else
-	{
-=======
     if ([data isKindOfClass:[NSArray class]]) {
         for (id row in data) {
             [self appendRow:[NSArray arrayWithObjects:row, anim, nil]];
@@ -632,7 +619,6 @@ NSArray * tableKeySequence;
     }
     else
     {
->>>>>>> master
         id header = [row valueForKey:@"header"];
         TiUITableViewActionType actionType = TiUITableViewActionAppendRow;
         TiUITableViewSectionProxy* section = [sections lastObject];

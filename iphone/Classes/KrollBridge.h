@@ -44,10 +44,6 @@
 	TitaniumObject *titanium;
 	BOOL shutdown;
     BOOL evaluationError;
-<<<<<<< HEAD
-	NSMutableArray *proxies;
-=======
->>>>>>> master
 	//NOTE: Do NOT treat registeredProxies like a mutableDictionary; mutable dictionaries copy keys,
 	//CFMutableDictionaryRefs only retain keys, which lets them work with proxies properly.
 	CFMutableDictionaryRef registeredProxies;
@@ -63,10 +59,7 @@
 - (KrollContext*)krollContext;
 
 + (NSArray *)krollBridgesUsingProxy:(id)proxy;
-<<<<<<< HEAD
 + (int)countOfKrollBridgesUsingProxy:(id)proxy;
-=======
->>>>>>> master
 + (BOOL)krollBridgeExists:(KrollBridge *)bridge;
 + (KrollBridge *)krollBridgeForThreadName:(NSString *)threadName;
 

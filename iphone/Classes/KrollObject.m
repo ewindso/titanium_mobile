@@ -414,11 +414,8 @@ TiValueRef KrollGetProperty(TiContextRef jsContext, TiObjectRef object, TiString
 			return NULL;
 		}
 		
-<<<<<<< HEAD
-=======
 		NSString* name = (NSString*)TiStringCopyCFString(kCFAllocatorDefault, prop);
 		[name autorelease];		
->>>>>>> master
 
 		id result = [o valueForKey:name];
 		TiObjectRef cachedObject = [o objectForTiString:prop context:jsContext];

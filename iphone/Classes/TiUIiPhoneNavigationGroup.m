@@ -120,13 +120,6 @@
 	[closingProxy autorelease];
 	closingProxy = [window retain];
 	[controller setViewControllers:newControllers animated:animated];
-	
-<<<<<<< HEAD
-/*	[window retain];
-	[window close:nil];
-	[window autorelease];*/
-=======
->>>>>>> master
 }
 
 - (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration
@@ -161,10 +154,7 @@
 	[closingProxy close:nil];
 	[closingProxy release];
 	closingProxy = nil;
-<<<<<<< HEAD
-	
-=======
->>>>>>> master
+
 	opening = NO;
 	[newWindow windowDidOpen];
 }

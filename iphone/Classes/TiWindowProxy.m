@@ -90,24 +90,14 @@ TiOrientationFlags TiOrientationFlagsFromObject(id args)
 -(void)replaceController
 {
 	if (controller != nil) {
-<<<<<<< HEAD
-		[(TiViewController *)controller setProxy:nil];
-		RELEASE_TO_NIL(controller);
-=======
 		[self releaseController];
->>>>>>> master
 		[self controller];
 	}
 }
 
 -(void) dealloc {
 	RELEASE_TO_NIL(navController);
-<<<<<<< HEAD
-	[(TiViewController *)controller setProxy:nil];
-	RELEASE_TO_NIL(controller);
-=======
 	[self releaseController];
->>>>>>> master
 	
 	[super dealloc];
 }
@@ -249,12 +239,7 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 	}
 	
 	RELEASE_TO_NIL(navController);
-<<<<<<< HEAD
-	[(TiViewController *)controller setProxy:nil];
-	RELEASE_TO_NIL(controller);
-=======
 	[self releaseController];
->>>>>>> master
 	
 	[self windowDidClose];
 	[self forgetSelf];
@@ -330,12 +315,8 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 // to a tab or nil to disassociate
 -(void)_associateTab:(UIViewController*)controller_ navBar:(UINavigationController*)navbar_ tab:(TiProxy<TiTab>*)tab_ 
 {
-<<<<<<< HEAD
-	[(TiViewController *)controller setProxy:nil];
-	RELEASE_TO_NIL(controller);
-=======
 	[self releaseController];
->>>>>>> master
+
 	RELEASE_TO_NIL(navController);
 	RELEASE_TO_NIL(tab);
 	

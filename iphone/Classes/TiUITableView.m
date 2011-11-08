@@ -14,10 +14,7 @@
 #import "TiProxy.h"
 #import "TiViewProxy.h"
 #import "TiUITableViewProxy.h"
-<<<<<<< HEAD
-=======
 #import "TiApp.h"
->>>>>>> master
 
 #define DEFAULT_SECTION_HEADERFOOTER_HEIGHT 20.0
 
@@ -252,12 +249,9 @@
     searchController.searchResultsDelegate = nil;
     searchController.delegate = nil;
 	RELEASE_TO_NIL(searchController);
-<<<<<<< HEAD
-=======
     
     tableview.delegate = nil;
     tableview.dataSource = nil;
->>>>>>> master
 	RELEASE_TO_NIL(tableview);
     
 	RELEASE_TO_NIL(sectionIndex);
@@ -732,23 +726,6 @@
 	return containerView;
 }
 
-<<<<<<< HEAD
-//Because UITableView does not like having 0 sections, we MUST maintain the facade of having at least one section,
-//albeit with 0 rows. Because of this, we might come across several times where this fictional first section will
-//be asked about. Because we don't want the sections array throwing range exceptions, sectionForIndex MUST be used
-//for this protection.
--(TiUITableViewSectionProxy *)sectionForIndex:(NSInteger) index
-{
-	NSArray * sections = [(TiUITableViewProxy *)[self proxy] sections];
-	if(index >= [sections count])
-	{
-		return nil;
-	}
-	return [sections objectAtIndex:index];
-}
-
-=======
->>>>>>> master
 -(TiUITableViewRowProxy*)rowForIndexPath:(NSIndexPath*)indexPath
 {
 	TiUITableViewSectionProxy *section = [self sectionForIndex:[indexPath section]];
