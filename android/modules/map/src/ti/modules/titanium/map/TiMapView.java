@@ -411,12 +411,19 @@ public class TiMapView extends TiUIView
 			case MSG_UPDATE_ANNOTATIONS :
 				doUpdateAnnotations();
 				return true;
+			case 123451:  // from nowHideAnnotation
+				hideAnnotation();
+				return true;
 		}
 
 		return false;
 	}
 
-	private void hideAnnotation() {
+	public void nowHideAnnotation() {
+		handler.obtainMessage(123451).sendToTarget();
+	}
+
+	public void hideAnnotation() {
 		if (view != null && itemView != null) {
 			view.removeView(itemView);
 			itemView.clearLastIndex();
@@ -458,6 +465,8 @@ public class TiMapView extends TiUIView
 
 	public void doUpdateAnnotations() {
 		if (itemView != null && view != null && view.indexOfChild(itemView) != -1 ) {
+			//TODO: hide pin annotations here
+			
 			//hideAnnotation();
 		}
 		doSetAnnotations(annotations);

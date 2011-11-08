@@ -123,6 +123,12 @@ public class ViewProxy extends TiViewProxy
 			mapView.updateAnnotations();
 		}
 	}
+	@Kroll.method
+	public void hideAnnotation() {
+		if(mapView != null) {
+			mapView.nowHideAnnotation();
+		}
+	}
 
 	protected int findAnnotation(String title)
 	{
