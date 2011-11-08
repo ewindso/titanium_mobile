@@ -90,7 +90,8 @@ if build_type in ['full', 'android'] and not only_package:
 		elif "ant_targets" in ARGUMENTS: targets = ARGUMENTS["ant_targets"].split(",")
 			
 		ant.build(targets=targets, properties={"build.version": version, "build.githash": githash,
-			"android.sdk": sdk.get_android_sdk(), "android.platform": sdk.get_platform_dir(), "google.apis": sdk.get_google_apis_dir()})
+			"android.sdk": sdk.get_android_sdk(), "android.platform": sdk.get_platform_dir(), "google.apis": "/opt/android-sdk/add-ons/addon_google_apis_google_inc_8"})
+			#sdk.get_google_apis_dir()})
 	finally:
 		os.chdir(d)
 
