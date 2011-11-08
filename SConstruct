@@ -111,6 +111,7 @@ if build_type in ['full', 'android'] and not only_package:
 		ant.build(targets=targets, properties={"build.version": version, "build.githash": githash,
 			"android.sdk": sdk.get_android_sdk(), "android.platform": sdk.get_platform_dir(), "google.apis": "/opt/android-sdk/add-ons/addon_google_apis_google_inc_8",
 			"ndk.build.args": "JAVAH=%s" % javah_path })
+
 	finally:
 		os.chdir(d)
 
