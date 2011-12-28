@@ -1,6 +1,6 @@
 /**
  * Appcelerator Titanium Mobile
- * Copyright (c) 2009-2011 by Appcelerator, Inc. All Rights Reserved.
+ * Copyright (c) 2009-2010 by Appcelerator, Inc. All Rights Reserved.
  * Licensed under the terms of the Apache Public License
  * Please see the LICENSE included with this distribution for details.
  */
@@ -9,20 +9,20 @@ package ti.modules.titanium.map;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollProxy;
-import org.appcelerator.kroll.common.Log;
-import org.appcelerator.kroll.common.TiConfig;
 import org.appcelerator.titanium.TiApplication;
 import org.appcelerator.titanium.TiC;
-import org.appcelerator.titanium.TiLifecycle.OnLifecycleEvent;
+import org.appcelerator.titanium.TiContext.OnLifecycleEvent;
 import org.appcelerator.titanium.TiProperties;
 import org.appcelerator.titanium.io.TiBaseFile;
 import org.appcelerator.titanium.io.TiFileFactory;
 import org.appcelerator.titanium.proxy.TiViewProxy;
+import org.appcelerator.titanium.util.AsyncResult;
+import org.appcelerator.titanium.util.Log;
+import org.appcelerator.titanium.util.TiConfig;
 import org.appcelerator.titanium.util.TiConvert;
 import org.appcelerator.titanium.util.TiUIHelper;
 import org.appcelerator.titanium.view.TiUIView;
@@ -34,7 +34,6 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.shapes.OvalShape;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -43,6 +42,7 @@ import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 import android.view.Window;
 import android.widget.Toast;
+import android.location.Location;
 
 import com.google.android.maps.GeoPoint;
 import com.google.android.maps.ItemizedOverlay;
@@ -113,7 +113,7 @@ public class TiMapView extends TiUIView
 		public void setScrollable(boolean enable) {
 			scrollEnabled = enable;
 		}
-
+		
 		@Override
 		public boolean dispatchTouchEvent(MotionEvent ev) {
 			if (!scrollEnabled && ev.getAction() == MotionEvent.ACTION_MOVE) {
@@ -142,12 +142,12 @@ public class TiMapView extends TiUIView
 				lastLatitudeSpan = getLatitudeSpan();
 				lastLongitudeSpan = getLongitudeSpan();
 
-				HashMap<String, Object> location = new HashMap<String, Object>();
-				location.put(TiC.PROPERTY_LATITUDE, scaleFromGoogle(lastLatitude));
-				location.put(TiC.PROPERTY_LONGITUDE, scaleFromGoogle(lastLongitude));
-				location.put(TiC.PROPERTY_LATITUDE_DELTA, scaleFromGoogle(lastLatitudeSpan));
-				location.put(TiC.PROPERTY_LONGITUDE_DELTA, scaleFromGoogle(lastLongitudeSpan));
-				proxy.fireEvent(TiC.EVENT_REGION_CHANGED, location);
+				KrollDict d = new KrollDict();
+				d.put(TiC.PROPERTY_LATITUDE, scaleFromGoogle(lastLatitude));
+				d.put(TiC.PROPERTY_LONGITUDE, scaleFromGoogle(lastLongitude));
+				d.put(TiC.PROPERTY_LATITUDE_DELTA, scaleFromGoogle(lastLatitudeSpan));
+				d.put(TiC.PROPERTY_LONGITUDE_DELTA, scaleFromGoogle(lastLongitudeSpan));
+				proxy.fireEvent(TiC.EVENT_REGION_CHANGED, d);
 			}
 		}
 	}
@@ -168,30 +168,35 @@ public class TiMapView extends TiUIView
 		}
 
 		@Override
+		public void draw(android.graphics.Canvas canvas, MapView mapView, boolean shadow) {
+			super.draw(canvas, mapView, false);
+		}
+
+		@Override
 		protected TiOverlayItem createItem(int i) {
 			TiOverlayItem item = null;
 
 			AnnotationProxy p = annotations.get(i);
-			if (p.hasProperty(TiC.PROPERTY_LATITUDE) && p.hasProperty(TiC.PROPERTY_LONGITUDE)) {
-				String title = TiConvert.toString(p.getProperty(TiC.PROPERTY_TITLE), "");
-				String subtitle = TiConvert.toString(p.getProperty(TiC.PROPERTY_SUBTITLE), "");
+			KrollDict a = p.getProperties();
+			if (a.containsKey(TiC.PROPERTY_LATITUDE) && a.containsKey(TiC.PROPERTY_LONGITUDE)) {
+				String title = a.optString(TiC.PROPERTY_TITLE, "");
+				String subtitle = a.optString(TiC.PROPERTY_SUBTITLE, "");
 
-				GeoPoint location = new GeoPoint(scaleToGoogle(TiConvert.toDouble(p.getProperty(TiC.PROPERTY_LATITUDE))),
-					scaleToGoogle(TiConvert.toDouble(p.getProperty(TiC.PROPERTY_LONGITUDE))));
+				GeoPoint location = new GeoPoint(scaleToGoogle(a.getDouble(TiC.PROPERTY_LATITUDE)), scaleToGoogle(a.getDouble(TiC.PROPERTY_LONGITUDE)));
 				item = new TiOverlayItem(location, title, subtitle, p);
 
 				//prefer pinImage to pincolor.
-				if (p.hasProperty(TiC.PROPERTY_IMAGE) || p.hasProperty(TiC.PROPERTY_PIN_IMAGE))
+				if (a.containsKey(TiC.PROPERTY_IMAGE) || a.containsKey(TiC.PROPERTY_PIN_IMAGE))
 				{
-					String imagePath = TiConvert.toString(p.getProperty(TiC.PROPERTY_IMAGE));
+					String imagePath = a.getString(TiC.PROPERTY_IMAGE);
 					if (imagePath == null) {
-						imagePath = TiConvert.toString(p.getProperty(TiC.PROPERTY_PIN_IMAGE));
+						imagePath = a.getString(TiC.PROPERTY_PIN_IMAGE);
 					}
 					Drawable marker = makeMarker(imagePath);
 					boundCenterBottom(marker);
 					item.setMarker(marker);
-				} else if (p.hasProperty(TiC.PROPERTY_PINCOLOR)) {
-					Object value = p.getProperty(TiC.PROPERTY_PINCOLOR);
+				} else if (a.containsKey(TiC.PROPERTY_PINCOLOR)) {
+					Object value = a.get(TiC.PROPERTY_PINCOLOR);
 					
 					try {
 						if (value instanceof String) {
@@ -202,7 +207,7 @@ public class TiMapView extends TiUIView
 							item.setMarker(makeMarker(markerColor));
 						} else {
 							// Assume it's a numeric
-							switch(TiConvert.toInt(p.getProperty(TiC.PROPERTY_PINCOLOR))) {
+							switch(a.getInt(TiC.PROPERTY_PINCOLOR)) {
 								case 1 : // RED
 									item.setMarker(makeMarker(Color.RED));
 									break;
@@ -216,33 +221,15 @@ public class TiMapView extends TiUIView
 						}
 					} catch (Exception e) {
 						// May as well catch all errors 
-						Log.w(LCAT, "Unable to parse color [" + TiConvert.toString(p.getProperty(TiC.PROPERTY_PINCOLOR))+"] for item ["+i+"]");
+						Log.w(LCAT, "Unable to parse color [" + a.getString(TiC.PROPERTY_PINCOLOR)+"] for item ["+i+"]");
 					}
 				}
 
-				if (p.hasProperty(TiC.PROPERTY_LEFT_BUTTON)) {
-					item.setLeftButton(proxy.resolveUrl(null, TiConvert.toString(p.getProperty(TiC.PROPERTY_LEFT_BUTTON))));
+				if (a.containsKey(TiC.PROPERTY_LEFT_BUTTON)) {
+					item.setLeftButton(proxy.getTiContext().resolveUrl(null, TiConvert.toString(a, TiC.PROPERTY_LEFT_BUTTON)));
 				}
-				if (p.hasProperty(TiC.PROPERTY_RIGHT_BUTTON)) {
-					item.setRightButton(proxy.resolveUrl(null, TiConvert.toString(p.getProperty(TiC.PROPERTY_RIGHT_BUTTON))));
-				}
-				if (p.hasProperty(TiC.PROPERTY_LEFT_VIEW)) {
-					Object leftView = p.getProperty(TiC.PROPERTY_LEFT_VIEW);
-					if (leftView instanceof TiViewProxy) {
-						item.setLeftView((TiViewProxy)leftView);
-
-					} else {
-						Log.e(LCAT, "invalid type for leftView");
-					}
-				}
-				if (p.hasProperty(TiC.PROPERTY_RIGHT_VIEW)) {
-					Object rightView = p.getProperty(TiC.PROPERTY_RIGHT_VIEW);
-					if (rightView instanceof TiViewProxy) {
-						item.setRightView((TiViewProxy)rightView);
-
-					} else {
-						Log.e(LCAT, "invalid type for rightView");
-					}
+				if (a.containsKey(TiC.PROPERTY_RIGHT_BUTTON)) {
+					item.setRightButton(proxy.getTiContext().resolveUrl(null, TiConvert.toString(a, TiC.PROPERTY_RIGHT_BUTTON)));
 				}
 			} else {
 				Log.w(LCAT, "Skipping annotation: No coordinates #" + i);
@@ -270,12 +257,10 @@ public class TiMapView extends TiUIView
 	public static class SelectedAnnotation {
 		String title;
 		boolean animate;
-		boolean center;
 
-		public SelectedAnnotation(String title, boolean animate, boolean center) {
+		public SelectedAnnotation(String title, boolean animate) {
 			this.title = title;
 			this.animate = animate;
-			this.center = center;
 		}
 	}
 	
@@ -288,7 +273,7 @@ public class TiMapView extends TiUIView
 		this.annotations = annotations;
 		this.selectedAnnotations = selectedAnnotations;
 
-		TiApplication app = TiApplication.getInstance();
+		TiApplication app = proxy.getTiContext().getTiApp();
 		TiProperties systemProperties = app.getSystemProperties();
 		String oldKey = systemProperties.getString(OLD_API_KEY, "");
 		String developmentKey = systemProperties.getString(DEVELOPMENT_API_KEY, "");
@@ -329,17 +314,17 @@ public class TiMapView extends TiUIView
 		ma.setLifecycleListener(new OnLifecycleEvent() {
 			public void onPause(Activity activity) {
 				if (myLocation != null) {
-					if (DBG) {
+				//	if (DBG) {
 						Log.d(LCAT, "onPause: Disabling My Location");
-					}
+				//	}
 					myLocation.disableMyLocation();
 				}
 			}
 			public void onResume(Activity activity) {
-				if (myLocation != null && userLocation) {
-					if (DBG) {
+				if (myLocation != null) { // && userLocation) {
+				//	if (DBG) {
 						Log.d(LCAT, "onResume: Enabling My Location");
-					}
+				//	}
 					myLocation.enableMyLocation();
 				}
 			}
@@ -358,12 +343,12 @@ public class TiMapView extends TiUIView
 
 		setNativeView(view);
 
-		this.regionFit = true;
+		this.regionFit =true;
 		this.animate = false;
 
 		final TiViewProxy fproxy = proxy;
 
-		itemView = new TiOverlayItemView(proxy.getActivity());
+		itemView = new TiOverlayItemView(proxy.getContext(), proxy.getTiContext());
 		itemView.setOnOverlayClickedListener(new TiOverlayItemView.OnOverlayClicked(){
 			public void onClick(int lastIndex, String clickedItem) {
 				TiOverlayItem item = overlay.getItem(lastIndex);
@@ -391,57 +376,54 @@ public class TiMapView extends TiUIView
 				doSetLocation((KrollDict) msg.obj);
 				return true;
 			}
-
 			case MSG_SET_MAPTYPE : {
 				doSetMapType(msg.arg1);
 				return true;
 			}
-
 			case MSG_SET_REGIONFIT :
 				regionFit = msg.arg1 == 1 ? true : false;
 				return true;
-
 			case MSG_SET_ANIMATE :
 				animate = msg.arg1 == 1 ? true : false;
 				return true;
-
 			case MSG_SET_SCROLLENABLED :
 				animate = msg.arg1 == 1 ? true : false;
 				if (view != null) {
 					view.setScrollable(scrollEnabled);
 				}
 				return true;
-
 			case MSG_SET_USERLOCATION :
 				userLocation = msg.arg1 == 1 ? true : false;
 				doUserLocation(userLocation);
 				return true;
-
 			case MSG_CHANGE_ZOOM :
 				MapController mc = view.getController();
 				if (mc != null) {
 					mc.setZoom(view.getZoomLevel() + msg.arg1);
 				}
 				return true;
-
 			case MSG_SELECT_ANNOTATION :
-				Bundle args = msg.getData();
-				boolean select = args.getBoolean("select", false);
-				String title = args.getString("title");
-				boolean animate = args.getBoolean("animate", false);
-				boolean center = args.getBoolean("center", true); // keep existing default behavior
-				doSelectAnnotation(select, title, animate, center);
+				boolean select = msg.arg1 == 1 ? true : false;
+				boolean animate = msg.arg2 == 1 ? true : false;
+				String title = (String) msg.obj;
+				doSelectAnnotation(select, title, animate);
 				return true;
-
 			case MSG_UPDATE_ANNOTATIONS :
 				doUpdateAnnotations();
+				return true;
+			case 123451:  // from nowHideAnnotation
+				hideAnnotation();
 				return true;
 		}
 
 		return false;
 	}
 
-	private void hideAnnotation() {
+	public void nowHideAnnotation() {
+		handler.obtainMessage(123451).sendToTarget();
+	}
+
+	public void hideAnnotation() {
 		if (view != null && itemView != null) {
 			view.removeView(itemView);
 			itemView.clearLastIndex();
@@ -449,9 +431,11 @@ public class TiMapView extends TiUIView
 	}
 
 	private void showAnnotation(int index, TiOverlayItem item) {
+		Log.e(LCAT, "B:" + view + ":" + itemView + ":" + item);
 		if (view != null && itemView != null && item != null) {
+			Log.e(LCAT, "B2");
 			itemView.setItem(index, item);
-			//Make sure the annotation is always on top of the marker
+			//Make sure the atonnation is always on top of the marker
 			int y = -1*item.getMarker(TiOverlayItem.ITEM_STATE_FOCUSED_MASK).getIntrinsicHeight();
 			MapView.LayoutParams params = new MapView.LayoutParams(LayoutParams.WRAP_CONTENT,
 					LayoutParams.WRAP_CONTENT, item.getPoint(), 0, y, MapView.LayoutParams.BOTTOM_CENTER);
@@ -461,13 +445,29 @@ public class TiMapView extends TiUIView
 		}
 	}
 
+	public String myLocationCoords() {
+		if(myLocation != null) {
+			Location curLocation = myLocation.getLastFix();
+			if(curLocation != null) {
+			
+				String returnLocation = "";
+				returnLocation += curLocation.getLatitude() + "," + curLocation.getLongitude();
+			
+				return returnLocation;
+			}
+		}
+		return "";
+	}
+
 	public void updateAnnotations() {
 		handler.obtainMessage(MSG_UPDATE_ANNOTATIONS).sendToTarget();
 	}
 
 	public void doUpdateAnnotations() {
 		if (itemView != null && view != null && view.indexOfChild(itemView) != -1 ) {
-			hideAnnotation();
+			//TODO: hide pin annotations here
+			
+			//hideAnnotation();
 		}
 		doSetAnnotations(annotations);
 	}
@@ -477,15 +477,33 @@ public class TiMapView extends TiUIView
 			synchronized(overlay) {
 				TiOverlayItem item = overlay.getItem(index);
 				if (itemView != null && index == itemView.getLastIndex() && itemView.getVisibility() == View.VISIBLE) {
+					// trigger event annotationDeselected
+					KrollDict d = new KrollDict();
+					d.put(TiC.PROPERTY_TITLE, item.getTitle());
+					d.put(TiC.PROPERTY_SUBTITLE, item.getSnippet());
+					d.put(TiC.PROPERTY_LATITUDE, scaleFromGoogle(item.getPoint().getLatitudeE6()));
+					d.put(TiC.PROPERTY_LONGITUDE, scaleFromGoogle(item.getPoint().getLongitudeE6()));
+					d.put(TiC.PROPERTY_ANNOTATION, item.getProxy());
+					proxy.fireEvent(TiC.EVENT_ANNOTATION_DESELECTED, d);					
+					
 					hideAnnotation();
 					return;
 				}
 
 				if (item.hasData()) {
 					hideAnnotation();
+					// trigger event annotationSelected
+					KrollDict d = new KrollDict();
+					d.put(TiC.PROPERTY_TITLE, item.getTitle());
+					d.put(TiC.PROPERTY_SUBTITLE, item.getSnippet());
+					d.put(TiC.PROPERTY_LATITUDE, scaleFromGoogle(item.getPoint().getLatitudeE6()));
+					d.put(TiC.PROPERTY_LONGITUDE, scaleFromGoogle(item.getPoint().getLongitudeE6()));
+					d.put(TiC.PROPERTY_ANNOTATION, item.getProxy());
+					proxy.fireEvent(TiC.EVENT_ANNOTATION_SELECTED, d);
+					
 					showAnnotation(index, item);
 				} else {
-					Toast.makeText(proxy.getActivity(), "No information for location", Toast.LENGTH_SHORT).show();
+					Toast.makeText(proxy.getContext(), "No information for location", Toast.LENGTH_SHORT).show();
 				}
 			}
 		}
@@ -533,12 +551,9 @@ public class TiMapView extends TiUIView
 			if (newValue != null) {
 				if (newValue instanceof AnnotationProxy) {
 					AnnotationProxy ap = (AnnotationProxy) newValue;
-
-					// TODO - implement a way to get all cached properties for a proxy - set annotation 
-					// via dict for now
-					// doSetLocation(ap.getProperties());
-				} else if (newValue instanceof HashMap) {
-					doSetLocation((HashMap) newValue);
+					doSetLocation(ap.getProperties());
+				} else if (newValue instanceof KrollDict) {
+					doSetLocation((KrollDict) newValue);
 				}
 			}
 		} else if (key.equals(TiC.PROPERTY_MAP_TYPE)) {
@@ -552,13 +567,13 @@ public class TiMapView extends TiUIView
 		}
 	}
 
-	public void doSetLocation(HashMap<String, Object> location) {
+	public void doSetLocation(KrollDict d) {
 		LocalMapView view = getView();
-		if (location.containsKey(TiC.PROPERTY_LONGITUDE) && location.containsKey(TiC.PROPERTY_LATITUDE)) {
-			GeoPoint gp = new GeoPoint(scaleToGoogle(TiConvert.toDouble(location, TiC.PROPERTY_LATITUDE)), scaleToGoogle(TiConvert.toDouble(location, TiC.PROPERTY_LONGITUDE)));
+		if (d.containsKey(TiC.PROPERTY_LONGITUDE) && d.containsKey(TiC.PROPERTY_LATITUDE)) {
+			GeoPoint gp = new GeoPoint(scaleToGoogle(d.getDouble(TiC.PROPERTY_LATITUDE)), scaleToGoogle(d.getDouble(TiC.PROPERTY_LONGITUDE)));
 			boolean anim = false;
-			if (location.containsKey(TiC.PROPERTY_ANIMATE)) {
-				anim = TiConvert.toBoolean(location, TiC.PROPERTY_ANIMATE);
+			if (d.containsKey(TiC.PROPERTY_ANIMATE)) {
+				anim = TiConvert.toBoolean(d, TiC.PROPERTY_ANIMATE);
 			}
 			if (anim) {
 				view.getController().animateTo(gp);
@@ -566,8 +581,8 @@ public class TiMapView extends TiUIView
 				view.getController().setCenter(gp);
 			}
 		}
-		if (regionFit && location.containsKey(TiC.PROPERTY_LONGITUDE_DELTA) && location.containsKey(TiC.PROPERTY_LATITUDE_DELTA)) {
-			view.getController().zoomToSpan(scaleToGoogle(TiConvert.toDouble(location, TiC.PROPERTY_LATITUDE_DELTA)), scaleToGoogle(TiConvert.toDouble(location, TiC.PROPERTY_LONGITUDE_DELTA)));
+		if (regionFit && d.containsKey(TiC.PROPERTY_LONGITUDE_DELTA) && d.containsKey(TiC.PROPERTY_LATITUDE_DELTA)) {
+			view.getController().zoomToSpan(scaleToGoogle(d.getDouble(TiC.PROPERTY_LATITUDE_DELTA)), scaleToGoogle(d.getDouble(TiC.PROPERTY_LONGITUDE_DELTA)));
 		} else {
 			Log.w(LCAT, "span must have longitudeDelta and latitudeDelta");
 		}
@@ -615,11 +630,8 @@ public class TiMapView extends TiUIView
 
 					int numSelectedAnnotations = selectedAnnotations.size();
 					for(int i = 0; i < numSelectedAnnotations; i++) {
-						SelectedAnnotation annotation = selectedAnnotations.get(i);
-						if (DBG) {
-							Log.d(LCAT, "Executing internal call to selectAnnotation:" + annotation.title);
-						}
-						selectAnnotation(true, annotation.title, annotation.animate, annotation.center);
+						Log.e(LCAT, "Executing internal call to selectAnnotation:" + (selectedAnnotations.get(i)).title);
+						selectAnnotation(true, (selectedAnnotations.get(i)).title, (selectedAnnotations.get(i)).animate);
 					}
 				}
 
@@ -628,27 +640,20 @@ public class TiMapView extends TiUIView
 		}
 	}
 
-	public void selectAnnotation(boolean select, String title, boolean animate, boolean center)
+	public void selectAnnotation(boolean select, String title, boolean animate)
 	{
 		if (title != null) {
 			Log.e(LCAT, "calling obtainMessage");
-
-			Bundle args = new Bundle();
-			args.putBoolean("select", select);
-			args.putString("title", title);
-			args.putBoolean("animate", animate);
-			args.putBoolean("center", center);
-
-			Message message = handler.obtainMessage(MSG_SELECT_ANNOTATION);
-			message.setData(args);
-			message.sendToTarget();
+			handler.obtainMessage(MSG_SELECT_ANNOTATION, select ? 1 : 0, animate ? 1 : 0, title).sendToTarget();
 		}
 	}
 
-	public void doSelectAnnotation(boolean select, String title, boolean animate, boolean center)
+	public void doSelectAnnotation(boolean select, String title, boolean animate)
 	{
+		Log.e(LCAT, "A:" + title + ":" + view + ":" + annotations + ":" + overlay);
 		if (title != null && view != null && annotations != null && overlay != null) {
 			int index = ((ViewProxy)proxy).findAnnotation(title);
+			Log.e(LCAT, "A2:" + index);
 			if (index > -1) {
 				if (overlay != null) {
 					synchronized(overlay) {
@@ -662,16 +667,14 @@ public class TiMapView extends TiUIView
 
 							hideAnnotation();
 
-							if (center) {
-								MapController controller = view.getController();
-								if (animate) {
-									controller.animateTo(item.getPoint());
-								} else {
-									controller.setCenter(item.getPoint());
-								}
+							/*MapController controller = view.getController();
+							if (animate) {
+								controller.animateTo(item.getPoint());
+							} else {
+								controller.setCenter(item.getPoint());
 							}
+							Log.e(LCAT, "A3:" + index + ":" + item);*/
 							showAnnotation(index, item);
-
 						} else {
 							hideAnnotation();
 						}
@@ -686,7 +689,7 @@ public class TiMapView extends TiUIView
 		if (view != null) {
 			if (userLocation) {
 				if (myLocation == null) {
-					myLocation = new MyLocationOverlay(proxy.getActivity(), view);
+					myLocation = new MyLocationOverlay(proxy.getContext(), view);
 				}
 
 				List<Overlay> overlays = view.getOverlays();
@@ -729,8 +732,8 @@ public class TiMapView extends TiUIView
 
 	private Drawable makeMarker(String pinImage)
 	{
-		String url = proxy.resolveUrl(null, pinImage);
-		TiBaseFile file = TiFileFactory.createTitaniumFile(new String[] { url }, false);
+		String url = proxy.getTiContext().resolveUrl(null, pinImage);
+		TiBaseFile file = TiFileFactory.createTitaniumFile(proxy.getTiContext(), new String[] { url }, false);
 		try {
 			Drawable d = new BitmapDrawable(TiUIHelper.createBitmap(file.getInputStream()));
 			d.setBounds(0, 0, d.getIntrinsicWidth(), d.getIntrinsicHeight());
