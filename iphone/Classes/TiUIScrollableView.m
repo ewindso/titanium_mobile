@@ -41,8 +41,13 @@
 -(CGRect)pageControlRect
 {
 	CGRect boundsRect = [self bounds];
-	return CGRectMake(boundsRect.origin.x, 
+	// Modified 3/16/2012 by Elijah WIndsor to change the positioning of the paging control
+/*	return CGRectMake(boundsRect.origin.x, 
 					  boundsRect.origin.y + boundsRect.size.height - pageControlHeight,
+					  boundsRect.size.width, 
+					  pageControlHeight);*/
+	return CGRectMake(boundsRect.origin.x, 
+					  pageControlTop,
 					  boundsRect.size.width, 
 					  pageControlHeight);
 }
@@ -328,6 +333,16 @@
 		pageControlHeight = 20.0;
 	}
 	[[self pagecontrol] setFrame:[self pageControlRect]];
+}
+
+/**
+ * Added 3/16/2012 by Elijah WIndsor for setting the top of the paging control
+ */
+-(void)setPagingControlTop_:(id)args
+{
+	pageControlTop = [TiUtils floatValue:args def:460.0];
+	
+	[[self pagecontrol] setFrame: [self pageControlRect]];
 }
 
 -(void)setPageControlHeight_:(id)arg
